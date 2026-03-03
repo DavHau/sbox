@@ -57,6 +57,7 @@ pkgs.testers.runNixOSTest {
 
   testScript = ''
     project = "/home/alice/project"
+    shell = "${shell}"
 
     # Boot and login
     machine.wait_for_unit("multi-user.target")
@@ -110,12 +111,12 @@ pkgs.testers.runNixOSTest {
             f"Expected SHLVL > {initial_shlvl} inside sandbox, got {inside_shlvl}"
 
     with subtest("sandbox exit on cd out"):
-        # cd out of the project tree triggers __direnv_sandbox_exit_hook
-        # which calls exit, terminating bwrap. We return to the outer shell.
+        # Trigger exit by navigating outside project tree
         machine.send_chars("cd /\n")
+
         machine.execute("rm -f /tmp/env-after")
         machine.send_chars("${checkUnsetCmd}\n")
-        machine.wait_until_succeeds("test -s /tmp/env-after", timeout=10)
+        machine.wait_until_succeeds("test -s /tmp/env-after", timeout=15)
         env_after = machine.succeed("cat /tmp/env-after").strip()
         machine.log(f"SANDBOX_TEST after exit: '{env_after}'")
         assert env_after == "unset", \

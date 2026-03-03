@@ -206,6 +206,8 @@ let
       --ro-bind-try /etc/bash.bashrc /etc/bash.bashrc \
       --ro-bind-try /etc/zshrc /etc/zshrc \
       --ro-bind-try /etc/zsh /etc/zsh \
+      --ro-bind-try /etc/fish /etc/fish \
+      --ro-bind-try /etc/static /etc/static \
       --ro-bind "$RESOLV" /etc/resolv.conf \
       --ro-bind ${customHosts} /etc/hosts \
       --ro-bind ${cacert}/etc/ssl/certs/ca-bundle.crt /etc/ssl/certs/ca-bundle.crt \

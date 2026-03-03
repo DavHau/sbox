@@ -36,13 +36,18 @@ end
 
 # --- INNER shell mode: exit monitor ---
 if set -q _DIRENV_SANDBOX_ACTIVE
-    # Monitor PWD changes and exit when leaving the project tree
-    function __direnv_sandbox_exit_hook --on-variable PWD
+    # Set up standard direnv hook inside the sandbox
+    set -l direnv_bin (set -q DIRENV_SANDBOX_DIRENV_BIN; and echo $DIRENV_SANDBOX_DIRENV_BIN; or echo direnv)
+    $direnv_bin hook fish | source
+
+    # Exit the sandbox when the user navigates outside the project tree.
+    # Uses --on-variable PWD to catch cd, pushd, popd, prevd, nextd, etc.
+    # exit 0 works from --on-variable handlers in fish 4.x.
+    function __direnv_sandbox_exit_check --on-variable PWD
         switch $PWD
-            case "$_DIRENV_SANDBOX_ROOT" "$_DIRENV_SANDBOX_ROOT/*"
+            case "$_DIRENV_SANDBOX_ROOT" "$_DIRENV_SANDBOX_ROOT/"*
                 # Still inside the project tree
             case '*'
-                # Save the directory the user navigated to
                 if set -q _DIRENV_SANDBOX_EXIT_DIR_FILE
                     echo -n $PWD > $_DIRENV_SANDBOX_EXIT_DIR_FILE 2>/dev/null; or true
                 end
@@ -50,40 +55,69 @@ if set -q _DIRENV_SANDBOX_ACTIVE
         end
     end
 
-    # Set up standard direnv hook inside the sandbox
-    set -l direnv_bin (set -q DIRENV_SANDBOX_DIRENV_BIN; and echo $DIRENV_SANDBOX_DIRENV_BIN; or echo direnv)
-    $direnv_bin hook fish | source
-
 # --- OUTER shell mode: sandbox entry ---
 else
-    function __direnv_sandbox_hook --on-event fish_prompt
-        # Don't recurse if already inside a sandbox
-        set -q _DIRENV_SANDBOX_ACTIVE; and return
-
-        # Require DIRENV_SANDBOX_CMD to be set
-        set -q DIRENV_SANDBOX_CMD; or return
-        if test (count $DIRENV_SANDBOX_CMD) -eq 0
-            return
-        end
-
-        __direnv_sandbox_find_envrc; or return
-
-        # Temp file for the inner shell to communicate its final directory
+    # Launch a sandboxed subshell and sync CWD on exit.
+    function __direnv_sandbox_run
         set -lx _DIRENV_SANDBOX_EXIT_DIR_FILE (set -q XDG_RUNTIME_DIR; and echo $XDG_RUNTIME_DIR; or echo /tmp)"/.direnv-sandbox-exit."$fish_pid
-
-        # Create the file so the sandbox can bind-mount it
         touch $_DIRENV_SANDBOX_EXIT_DIR_FILE
-
-        # Launch sandboxed subshell
         set -lx _DIRENV_SANDBOX_ACTIVE 1
         set -lx _DIRENV_SANDBOX_ROOT $__direnv_sandbox_project_root
         $DIRENV_SANDBOX_CMD -- fish
-
-        # Sync outer shell's CWD with where the user navigated inside the sandbox
         if test -s "$_DIRENV_SANDBOX_EXIT_DIR_FILE"
             set -l exit_dir (cat $_DIRENV_SANDBOX_EXIT_DIR_FILE)
             builtin cd -- $exit_dir 2>/dev/null
         end
         rm -f $_DIRENV_SANDBOX_EXIT_DIR_FILE 2>/dev/null
+    end
+
+    # Check for sandbox entry after directory changes.
+    # Wraps directory-changing commands instead of using --on-event
+    # fish_prompt because the event handler approach fails to reclaim
+    # the terminal foreground process group in our NixOS VM test
+    # (tty1 + full sbox/bwrap/slirp4netns chain), despite working
+    # fine in standalone tests with pseudo-terminals.
+    function __direnv_sandbox_maybe_enter
+        set -q _DIRENV_SANDBOX_ACTIVE; and return 0
+        set -q DIRENV_SANDBOX_CMD; or return 0
+        test (count $DIRENV_SANDBOX_CMD) -eq 0; and return 0
+        __direnv_sandbox_find_envrc; or return 0
+        __direnv_sandbox_run
+    end
+
+    # cd is a builtin in fish 4.x
+    function cd --wraps cd
+        builtin cd $argv; or return $status
+        __direnv_sandbox_maybe_enter
+        return 0
+    end
+
+    # pushd/popd/prevd/nextd are functions — save originals before wrapping
+    for cmd in pushd popd prevd nextd
+        functions --copy $cmd __direnv_sandbox_original_$cmd 2>/dev/null
+    end
+
+    function pushd --wraps pushd
+        __direnv_sandbox_original_pushd $argv; or return $status
+        __direnv_sandbox_maybe_enter
+        return 0
+    end
+
+    function popd --wraps popd
+        __direnv_sandbox_original_popd $argv; or return $status
+        __direnv_sandbox_maybe_enter
+        return 0
+    end
+
+    function prevd --wraps prevd
+        __direnv_sandbox_original_prevd $argv; or return $status
+        __direnv_sandbox_maybe_enter
+        return 0
+    end
+
+    function nextd --wraps nextd
+        __direnv_sandbox_original_nextd $argv; or return $status
+        __direnv_sandbox_maybe_enter
+        return 0
     end
 end

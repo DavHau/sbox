@@ -81,7 +81,16 @@ in
       source "${pkg}/share/direnv-sandbox/direnv-sandbox.zsh"
     '';
 
+    # Fish: the direnv package ships share/fish/vendor_conf.d/direnv.fish
+    # which auto-hooks direnv regardless of enableFishIntegration. Since
+    # vendor_conf.d is sourced before interactiveShellInit, we erase its
+    # functions here and replace them with our sandbox-aware hook.
+    # This goes into /etc/fish/config.fish via the NixOS fish module,
+    # which fish sources via its built-in NixOS support (even inside bwrap,
+    # as long as /etc/fish is bind-mounted).
     programs.fish.interactiveShellInit = ''
+      functions --erase __direnv_export_eval 2>/dev/null
+      functions --erase __direnv_cd_hook 2>/dev/null
       set -gx DIRENV_SANDBOX_CMD ${escapedCmd}
       set -gx DIRENV_SANDBOX_DIRENV_BIN "${lib.getExe direnv-cfg.package}"
       source "${pkg}/share/direnv-sandbox/direnv-sandbox.fish"
