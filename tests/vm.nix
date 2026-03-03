@@ -35,33 +35,29 @@ pkgs.testers.runNixOSTest {
         enable = true;
         sandbox = {
           enable = true;
-          command = [
-            "${pkgs.bubblewrap}/bin/bwrap"
-            "--bind"
-            "/"
-            "/"
-            "--dev"
-            "/dev"
-            "--proc"
-            "/proc"
-          ];
         };
       };
 
-      # Create a project directory with an .envrc
-      system.activationScripts.createProject = ''
-        mkdir -p /home/alice/project
-        echo 'export SANDBOX_TEST=hello' > /home/alice/project/.envrc
-        chown -R alice:users /home/alice/project
-      ''
-      # Prevent zsh's new-user-install wizard from blocking the inner shell
-      + lib.optionalString (shell == "zsh") ''
-        touch /home/alice/.zshrc
-        chown alice:users /home/alice/.zshrc
-      '';
+      # Create a project directory with an .envrc.
+      # deps ensures this runs after user creation (default order is alphabetical).
+      system.activationScripts.createProject = {
+        deps = [ "users" ];
+        text = ''
+          mkdir -p /home/alice/project
+          echo 'export SANDBOX_TEST=hello' > /home/alice/project/.envrc
+          chown -R alice:users /home/alice/project
+        ''
+        # Prevent zsh's new-user-install wizard from blocking the inner shell
+        + lib.optionalString (shell == "zsh") ''
+          touch /home/alice/.zshrc
+          chown alice:users /home/alice/.zshrc
+        '';
+      };
     };
 
   testScript = ''
+    project = "/home/alice/project"
+
     # Boot and login
     machine.wait_for_unit("multi-user.target")
     machine.wait_for_unit("getty@tty1.service")
@@ -97,18 +93,18 @@ pkgs.testers.runNixOSTest {
         # The sandbox launches bwrap, which runs the shell, which sources
         # the hook script (inner mode) + direnv hook, then direnv loads .envrc.
         # Characters are buffered in the TTY until the inner shell is ready.
-        machine.execute("rm -f /tmp/env-check")
-        machine.send_chars("echo $SANDBOX_TEST > /tmp/env-check\n")
-        machine.wait_until_succeeds("test -s /tmp/env-check", timeout=10)
-        env_val = machine.succeed("cat /tmp/env-check").strip()
+        machine.execute(f"rm -f {project}/env-check")
+        machine.send_chars(f"echo $SANDBOX_TEST > {project}/env-check\n")
+        machine.wait_until_succeeds(f"test -s {project}/env-check", timeout=10)
+        env_val = machine.succeed(f"cat {project}/env-check").strip()
         machine.log(f"SANDBOX_TEST value: '{env_val}'")
         assert env_val == "hello", f"Expected SANDBOX_TEST=hello, got: {env_val!r}"
 
     with subtest("SHLVL increases inside sandbox"):
-        machine.execute("rm -f /tmp/shlvl-inside")
-        machine.send_chars("echo $SHLVL > /tmp/shlvl-inside\n")
-        machine.wait_until_succeeds("test -s /tmp/shlvl-inside", timeout=5)
-        inside_shlvl = int(machine.succeed("cat /tmp/shlvl-inside").strip())
+        machine.execute(f"rm -f {project}/shlvl-inside")
+        machine.send_chars(f"echo $SHLVL > {project}/shlvl-inside\n")
+        machine.wait_until_succeeds(f"test -s {project}/shlvl-inside", timeout=5)
+        inside_shlvl = int(machine.succeed(f"cat {project}/shlvl-inside").strip())
         machine.log(f"Inside SHLVL: {inside_shlvl} (initial: {initial_shlvl})")
         assert inside_shlvl > initial_shlvl, \
             f"Expected SHLVL > {initial_shlvl} inside sandbox, got {inside_shlvl}"
@@ -136,10 +132,10 @@ pkgs.testers.runNixOSTest {
 
     with subtest("re-entry works"):
         machine.send_chars("cd ~/project\n")
-        machine.execute("rm -f /tmp/reentry-check")
-        machine.send_chars("echo $SANDBOX_TEST > /tmp/reentry-check\n")
-        machine.wait_until_succeeds("test -s /tmp/reentry-check", timeout=10)
-        reentry_val = machine.succeed("cat /tmp/reentry-check").strip()
+        machine.execute(f"rm -f {project}/reentry-check")
+        machine.send_chars(f"echo $SANDBOX_TEST > {project}/reentry-check\n")
+        machine.wait_until_succeeds(f"test -s {project}/reentry-check", timeout=10)
+        reentry_val = machine.succeed(f"cat {project}/reentry-check").strip()
         machine.log(f"SANDBOX_TEST on re-entry: '{reentry_val}'")
         assert reentry_val == "hello", \
             f"Expected SANDBOX_TEST=hello on re-entry, got: {reentry_val!r}"

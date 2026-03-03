@@ -50,40 +50,27 @@ __direnv_sandbox_hook() {
     return "$previous_exit_status"
   fi
 
-  # Don't re-enter a project we just exited from (fallback for when
-  # the exit-dir file is not writable inside the sandbox)
-  if [[ -n "${_DIRENV_SANDBOX_EXITED_ROOT:-}" ]]; then
-    case "$PWD" in
-      "${_DIRENV_SANDBOX_EXITED_ROOT}"|"${_DIRENV_SANDBOX_EXITED_ROOT}/"*)
-        return "$previous_exit_status"
-        ;;
-      *)
-        unset _DIRENV_SANDBOX_EXITED_ROOT
-        ;;
-    esac
-  fi
-
   local project_root
   project_root="$(__direnv_sandbox_find_envrc)" || return "$previous_exit_status"
 
   # Temp file for the inner shell to communicate its final directory
-  local _exit_dir_file
-  _exit_dir_file="${XDG_RUNTIME_DIR:-/tmp}/.direnv-sandbox-exit.$$"
+  local _DIRENV_SANDBOX_EXIT_DIR_FILE
+  _DIRENV_SANDBOX_EXIT_DIR_FILE="${XDG_RUNTIME_DIR:-/tmp}/.direnv-sandbox-exit.$$"
+
+  # Create the file so the sandbox can bind-mount it
+  touch "$_DIRENV_SANDBOX_EXIT_DIR_FILE"
 
   # Launch sandboxed subshell
   _DIRENV_SANDBOX_ACTIVE=1 \
   _DIRENV_SANDBOX_ROOT="$project_root" \
-  _DIRENV_SANDBOX_EXIT_DIR_FILE="$_exit_dir_file" \
+  _DIRENV_SANDBOX_EXIT_DIR_FILE="$_DIRENV_SANDBOX_EXIT_DIR_FILE" \
     "${DIRENV_SANDBOX_CMD[@]}" -- bash
 
   # Sync outer shell's CWD with where the user navigated inside the sandbox
-  if [[ -s "$_exit_dir_file" ]]; then
-    builtin cd -- "$(< "$_exit_dir_file")" 2>/dev/null || _DIRENV_SANDBOX_EXITED_ROOT="$project_root"
-    rm -f "$_exit_dir_file"
-  else
-    rm -f "$_exit_dir_file" 2>/dev/null
-    _DIRENV_SANDBOX_EXITED_ROOT="$project_root"
+  if [[ -s "$_DIRENV_SANDBOX_EXIT_DIR_FILE" ]]; then
+    builtin cd -- "$(< "$_DIRENV_SANDBOX_EXIT_DIR_FILE")" 2>/dev/null
   fi
+  rm -f "$_DIRENV_SANDBOX_EXIT_DIR_FILE" 2>/dev/null
 
   return "$previous_exit_status"
 }

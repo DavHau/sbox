@@ -85,13 +85,24 @@ let
     }
 
     PROJECT_DIR="$(pwd)"
-    if [ $# -gt 0 ]; then
-      PROJECT_DIR="$(realpath -s "$1")"
-      if [ ! -d "$PROJECT_DIR" ]; then
-        echo "Error: Directory '$1' does not exist"
-        exit 1
-      fi
-    fi
+    EXEC_CMD=()
+    while [ $# -gt 0 ]; do
+      case "$1" in
+        --)
+          shift
+          EXEC_CMD=("$@")
+          break
+          ;;
+        *)
+          PROJECT_DIR="$(realpath -s "$1")"
+          if [ ! -d "$PROJECT_DIR" ]; then
+            echo "Error: Directory '$1' does not exist"
+            exit 1
+          fi
+          shift
+          ;;
+      esac
+    done
 
     # USER="$(whoami)"
 
@@ -155,6 +166,13 @@ let
       read -ra EXTRA_BIND_ARGS <<< "$__SANDBOX_BIND_ARGS"
     fi
 
+    # Use explicit command if given (-- <cmd>), otherwise the configured entrypoint
+    if [ ''${#EXEC_CMD[@]} -gt 0 ]; then
+      SANDBOX_ENTRYPOINT=("''${EXEC_CMD[@]}")
+    else
+      SANDBOX_ENTRYPOINT=(${entrypoint})
+    fi
+
     echo "Starting bubblewrap sandbox in: $PROJECT_DIR"
     exec ${bubblewrap}/bin/bwrap \
       --die-with-parent \
@@ -213,7 +231,7 @@ let
       --setenv PS1 "[sandbox] \w \$ " \
       --setenv PATH "${lib.makeBinPath packages}:$SANDBOX_PATH" \
       ${env} \
-      ${entrypoint}
+      "''${SANDBOX_ENTRYPOINT[@]}"
   '';
 
   # ---------------------------------------------------------------------------
@@ -226,6 +244,7 @@ let
     FORWARD_PORTS=()
     BIND_ARGS=()
     ARGS=()
+    EXEC_CMD=()
     while [ $# -gt 0 ]; do
       case "$1" in
         --network)
@@ -249,6 +268,11 @@ let
           BIND_ARGS+=(--ro-bind "$2" "$3")
           shift 3
           ;;
+        --)
+          shift
+          EXEC_CMD=("$@")
+          break
+          ;;
         *)
           ARGS+=("$1")
           shift
@@ -256,10 +280,16 @@ let
       esac
     done
 
+    # Build args for the inner script, passing through -- <cmd> if given
+    INNER_ARGS=("''${ARGS[@]}")
+    if [ ''${#EXEC_CMD[@]} -gt 0 ]; then
+      INNER_ARGS+=(-- "''${EXEC_CMD[@]}")
+    fi
+
     if [ "$USE_HOST_NET" = 1 ]; then
       __SANDBOX_BIND_ARGS="''${BIND_ARGS[*]}" \
         exec ${util-linux}/bin/unshare --user --map-root-user \
-          -- ${innerScript} "''${ARGS[@]}"
+          -- ${innerScript} "''${INNER_ARGS[@]}"
     fi
 
     WORK=$(mktemp -d)
@@ -317,7 +347,7 @@ let
     __SANDBOX_WORK="$WORK" \
     __SANDBOX_BIND_ARGS="''${BIND_ARGS[*]}" \
       ${util-linux}/bin/unshare --user --map-root-user --net \
-        -- ${innerScript} "''${ARGS[@]}"
+        -- ${innerScript} "''${INNER_ARGS[@]}"
   '';
 
 in

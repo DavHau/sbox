@@ -66,36 +66,24 @@ else
             return
         end
 
-        # Don't re-enter a project we just exited from (fallback for when
-        # the exit-dir file is not writable inside the sandbox)
-        if set -q __direnv_sandbox_exited_root
-            switch $PWD
-                case "$__direnv_sandbox_exited_root" "$__direnv_sandbox_exited_root/*"
-                    return
-                case '*'
-                    set -e __direnv_sandbox_exited_root
-            end
-        end
-
         __direnv_sandbox_find_envrc; or return
 
         # Temp file for the inner shell to communicate its final directory
-        set -l _exit_dir_file (set -q XDG_RUNTIME_DIR; and echo $XDG_RUNTIME_DIR; or echo /tmp)"/.direnv-sandbox-exit."$fish_pid
+        set -lx _DIRENV_SANDBOX_EXIT_DIR_FILE (set -q XDG_RUNTIME_DIR; and echo $XDG_RUNTIME_DIR; or echo /tmp)"/.direnv-sandbox-exit."$fish_pid
+
+        # Create the file so the sandbox can bind-mount it
+        touch $_DIRENV_SANDBOX_EXIT_DIR_FILE
 
         # Launch sandboxed subshell
         set -lx _DIRENV_SANDBOX_ACTIVE 1
         set -lx _DIRENV_SANDBOX_ROOT $__direnv_sandbox_project_root
-        set -lx _DIRENV_SANDBOX_EXIT_DIR_FILE $_exit_dir_file
         $DIRENV_SANDBOX_CMD -- fish
 
         # Sync outer shell's CWD with where the user navigated inside the sandbox
-        if test -s "$_exit_dir_file"
-            set -l exit_dir (cat $_exit_dir_file)
-            builtin cd -- $exit_dir 2>/dev/null; or set -g __direnv_sandbox_exited_root $__direnv_sandbox_project_root
-            rm -f $_exit_dir_file
-        else
-            rm -f $_exit_dir_file 2>/dev/null
-            set -g __direnv_sandbox_exited_root $__direnv_sandbox_project_root
+        if test -s "$_DIRENV_SANDBOX_EXIT_DIR_FILE"
+            set -l exit_dir (cat $_DIRENV_SANDBOX_EXIT_DIR_FILE)
+            builtin cd -- $exit_dir 2>/dev/null
         end
+        rm -f $_DIRENV_SANDBOX_EXIT_DIR_FILE 2>/dev/null
     end
 end

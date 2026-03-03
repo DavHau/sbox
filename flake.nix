@@ -17,6 +17,7 @@
     {
       packages = forAllSystems (pkgs: {
         default = self.packages.${pkgs.system}.direnv-sandbox;
+        sbox = pkgs.callPackage ./sbox.nix { };
         direnv-sandbox = pkgs.stdenvNoCC.mkDerivation {
           pname = "direnv-sandbox";
           version = "0.1.0";

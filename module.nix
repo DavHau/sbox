@@ -10,6 +10,16 @@ let
   direnv-cfg = config.programs.direnv;
   pkg = cfg.package;
   escapedCmd = lib.escapeShellArgs cfg.command;
+
+  # sbox with direnv-specific bind mounts:
+  #  - direnv allow/deny database (read-only)
+  #  - exit-dir file for CWD sync between inner and outer shell
+  sbox = (self.packages.${pkgs.system}.sbox).override {
+    bubblewrapArgs = [
+      "--ro-bind-try" "$HOME/.local/share/direnv" "$HOME/.local/share/direnv"
+      "--bind" "$_DIRENV_SANDBOX_EXIT_DIR_FILE" "$_DIRENV_SANDBOX_EXIT_DIR_FILE"
+    ];
+  };
 in
 {
   options.programs.direnv.sandbox = {
@@ -23,7 +33,8 @@ in
 
     command = lib.mkOption {
       type = lib.types.listOf lib.types.str;
-      description = "The bwrap command and arguments to use as sandbox wrapper.";
+      default = [ "${sbox}/bin/sbox" ];
+      description = "The sandbox command and arguments. The shell to exec is appended after '--'.";
       example = [
         "bwrap"
         "--ro-bind"
