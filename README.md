@@ -1,5 +1,7 @@
 # direnv-sandbox
 
+![direnv-sandbox](https://gist.githubusercontent.com/DavHau/87d0c3b66bd44b852e5f85bb555202e8/raw/direnv-sandbox.jpg)
+
 Automatic [bubblewrap](https://github.com/containers/bubblewrap) sandboxing for [direnv](https://direnv.net/) environments on NixOS.
 
 ## The problem
