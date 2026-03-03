@@ -46,6 +46,10 @@ pkgs.testers.runNixOSTest {
           mkdir -p /home/alice/project/subdir
           echo 'export SANDBOX_TEST=hello' > /home/alice/project/.envrc
           chown -R alice:users /home/alice/project
+
+          mkdir -p /home/alice/project2
+          echo 'export SANDBOX_TEST2=world' > /home/alice/project2/.envrc
+          chown -R alice:users /home/alice/project2
         ''
         # Prevent zsh's new-user-install wizard from blocking the inner shell
         + lib.optionalString (shell == "zsh") ''
@@ -156,5 +160,29 @@ pkgs.testers.runNixOSTest {
         machine.log(f"SANDBOX_TEST in subdir: '{subdir_val}'")
         assert subdir_val == "hello", \
             f"Expected SANDBOX_TEST=hello in subdir, got: {subdir_val!r}"
+
+    # Exit sandbox before testing direnv-allow-while-in-dir
+    machine.send_chars("cd /\n")
+    machine.execute("rm -f /tmp/exited2")
+    machine.send_chars("echo DONE > /tmp/exited2\n")
+    machine.wait_for_file("/tmp/exited2")
+
+    with subtest("sandbox activates after direnv allow from within project"):
+        # cd into project2 whose .envrc is NOT yet allowed — no sandbox should launch
+        machine.send_chars("cd ~/project2\n")
+        machine.execute("rm -f /tmp/cd-done")
+        machine.send_chars("echo DONE > /tmp/cd-done\n")
+        machine.wait_for_file("/tmp/cd-done")
+
+        # Now allow the .envrc while already inside the directory.
+        # The sandbox should activate without needing to cd out and back in.
+        machine.send_chars("direnv allow .\n")
+        machine.execute("rm -f /home/alice/project2/allow-check")
+        machine.send_chars("echo $SANDBOX_TEST2 > ~/project2/allow-check\n")
+        machine.wait_until_succeeds("test -s /home/alice/project2/allow-check", timeout=10)
+        val = machine.succeed("cat /home/alice/project2/allow-check").strip()
+        machine.log(f"SANDBOX_TEST2 after allow: '{val}'")
+        assert val == "world", \
+            f"Expected SANDBOX_TEST2=world after direnv allow, got: {val!r}"
   '';
 }

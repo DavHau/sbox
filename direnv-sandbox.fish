@@ -85,6 +85,18 @@ else
         __direnv_sandbox_run
     end
 
+    # Re-check after direnv allow/permit/grant in case we're already
+    # in a project directory whose .envrc just became allowed.
+    function direnv --wraps direnv
+        set -l direnv_bin (set -q DIRENV_SANDBOX_DIRENV_BIN; and echo $DIRENV_SANDBOX_DIRENV_BIN; or echo direnv)
+        command $direnv_bin $argv
+        set -l cmd_status $status
+        if contains -- $argv[1] allow permit grant
+            __direnv_sandbox_maybe_enter
+        end
+        return $cmd_status
+    end
+
     # cd is a builtin in fish 4.x
     function cd --wraps cd
         builtin cd $argv; or return $status
