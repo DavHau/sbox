@@ -13,6 +13,12 @@ let
     zsh = "echo \${SANDBOX_TEST:-unset} > /tmp/env-after";
     fish = "set -q SANDBOX_TEST; and echo set > /tmp/env-after; or echo unset > /tmp/env-after";
   }.${shell};
+
+  checkDeniedUnsetCmd = {
+    bash = "echo \${SANDBOX_TEST_DENIED:-unset} > /tmp/denied-env";
+    zsh = "echo \${SANDBOX_TEST_DENIED:-unset} > /tmp/denied-env";
+    fish = "set -q SANDBOX_TEST_DENIED; and echo set > /tmp/denied-env; or echo unset > /tmp/denied-env";
+  }.${shell};
 in
 pkgs.testers.runNixOSTest {
   name = "direnv-sandbox-${shell}";
@@ -50,6 +56,14 @@ pkgs.testers.runNixOSTest {
           mkdir -p /home/alice/project2
           echo 'export SANDBOX_TEST2=world' > /home/alice/project2/.envrc
           chown -R alice:users /home/alice/project2
+
+          mkdir -p /home/alice/project-denied
+          echo 'export SANDBOX_TEST_DENIED=evil' > /home/alice/project-denied/.envrc
+          chown -R alice:users /home/alice/project-denied
+
+          mkdir -p /home/alice/project-notallowed
+          echo 'export SANDBOX_TEST_NOTALLOWED=nope' > /home/alice/project-notallowed/.envrc
+          chown -R alice:users /home/alice/project-notallowed
         ''
         # Prevent zsh's new-user-install wizard from blocking the inner shell
         + lib.optionalString (shell == "zsh") ''
@@ -87,6 +101,56 @@ pkgs.testers.runNixOSTest {
     machine.execute("rm -f /tmp/allow-done")
     machine.send_chars("direnv allow ~/project; echo DONE > /tmp/allow-done\n")
     machine.wait_for_file("/tmp/allow-done")
+
+    # Deny the project-denied .envrc
+    machine.execute("rm -f /tmp/deny-done")
+    machine.send_chars("direnv deny ~/project-denied; echo DONE > /tmp/deny-done\n")
+    machine.wait_until_succeeds("test -s /tmp/deny-done", timeout=5)
+
+    with subtest("no sandbox for denied envrc"):
+        machine.send_chars("cd ~/project-denied\n")
+        # If a sandbox launched, SHLVL would increase and we'd be stuck inside.
+        # Verify we're still in the outer shell at the same SHLVL.
+        machine.execute("rm -f /tmp/denied-shlvl")
+        machine.send_chars("echo $SHLVL > /tmp/denied-shlvl\n")
+        machine.wait_until_succeeds("test -s /tmp/denied-shlvl", timeout=10)
+        denied_shlvl = int(machine.succeed("cat /tmp/denied-shlvl").strip())
+        machine.log(f"SHLVL in denied dir: {denied_shlvl} (initial: {initial_shlvl})")
+        assert denied_shlvl == initial_shlvl, \
+            f"Expected SHLVL == {initial_shlvl} (no sandbox for denied dir), got {denied_shlvl}"
+
+        # Also verify SANDBOX_TEST_DENIED is NOT set (direnv didn't load it)
+        machine.execute("rm -f /tmp/denied-env")
+        machine.send_chars("${checkDeniedUnsetCmd}\n")
+        machine.wait_until_succeeds("test -s /tmp/denied-env", timeout=5)
+        val = machine.succeed("cat /tmp/denied-env").strip()
+        machine.log(f"SANDBOX_TEST_DENIED: '{val}'")
+        assert val == "unset", \
+            f"Expected SANDBOX_TEST_DENIED to be unset in denied dir, got: {val!r}"
+
+    # Go back home before the next test
+    machine.send_chars("cd ~\n")
+    machine.execute("rm -f /tmp/back-home")
+    machine.send_chars("echo DONE > /tmp/back-home\n")
+    machine.wait_until_succeeds("test -s /tmp/back-home", timeout=5)
+
+    with subtest("no sandbox for not-allowed envrc"):
+        # project-notallowed has an .envrc that was never direnv-allowed.
+        # The sandbox must NOT launch.
+        machine.send_chars("cd ~/project-notallowed\n")
+        machine.execute("rm -f /tmp/notallowed-shlvl")
+        machine.send_chars("echo $SHLVL > /tmp/notallowed-shlvl\n")
+        machine.wait_until_succeeds("test -s /tmp/notallowed-shlvl", timeout=10)
+        notallowed_shlvl = int(machine.succeed("cat /tmp/notallowed-shlvl").strip())
+        machine.log(f"SHLVL in not-allowed dir: {notallowed_shlvl} (initial: {initial_shlvl})")
+        assert notallowed_shlvl == initial_shlvl, \
+            f"Expected SHLVL == {initial_shlvl} (no sandbox for not-allowed dir), got {notallowed_shlvl}"
+
+    # Go back home before the next test
+    machine.send_chars("cd ~\n")
+    machine.execute("rm -f /tmp/back-home2")
+    machine.send_chars("echo DONE > /tmp/back-home2\n")
+    machine.wait_until_succeeds("test -s /tmp/back-home2", timeout=5)
 
     with subtest("sandbox entry on cd"):
         # We're in ~ (home dir). cd into project triggers PROMPT_COMMAND which
