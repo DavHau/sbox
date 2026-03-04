@@ -412,6 +412,18 @@ pkgs.testers.runNixOSTest {
             assert reenabled_shlvl > initial_shlvl, \
                 f"Expected SHLVL > {initial_shlvl} after re-enable, got {reenabled_shlvl}"
 
+        with subtest("direnv-sandbox on activates sandbox when already in project dir"):
+            machine.send_chars("cd ~\n")
+            machine.send_chars("direnv allow ~/project\n")
+            machine.send_chars("direnv-sandbox off ~/project\n")
+            machine.send_chars("cd ~/project\n")
+            machine.send_chars("direnv-sandbox on ~/project\n")
+            machine.execute(f"rm -f {project}/on-inside-sandbox")
+            machine.send_chars(f"echo $SANDBOX > {project}/on-inside-sandbox\n")
+            machine.wait_until_succeeds(f"test -s {project}/on-inside-sandbox", timeout=15)
+            assert machine.succeed(f"cat {project}/on-inside-sandbox").strip() == "1", \
+                "Expected SANDBOX=1 after re-enable from inside project dir"
+
         with subtest("direnv-sandbox off refuses to run inside sandbox"):
             # We're inside the sandbox from the previous test.
             # This is security-critical: a malicious .envrc must not be able to
