@@ -46,6 +46,15 @@ end
 
 # --- INNER shell mode: exit monitor ---
 if set -q _DIRENV_SANDBOX_ACTIVE
+    # Clean up exported variables that may have leaked from the outer shell.
+    # When the sandbox is entered via `z` (zoxide), the outer shell's
+    # __zoxide_cd sets __zoxide_loop=1 as an exported variable for the
+    # duration of __zoxide_cd_internal.  Our --on-variable PWD handler
+    # spawns the sandbox subshell *during* that execution, so the child
+    # inherits the exported __zoxide_loop — making every `z` inside the
+    # sandbox think it's in an infinite loop.
+    set -e __zoxide_loop
+
     # Set up standard direnv hook inside the sandbox
     set -l direnv_bin (set -q DIRENV_SANDBOX_DIRENV_BIN; and echo $DIRENV_SANDBOX_DIRENV_BIN; or echo direnv)
     $direnv_bin hook fish | source
