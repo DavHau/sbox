@@ -77,6 +77,11 @@ programs.direnv.sandbox = {
   # Forward host TCP ports into the sandbox
   allowedTCPPorts = [ 5432 6379 ];
 
+  # Mount the parent directory of the project inside the sandbox
+  # "off" (default) = not mounted, "read" = read-only, "write" = read-write
+  # The project directory itself is always mounted read-write regardless.
+  allowParent = "off";
+
   # Use host network instead of isolated slirp4netns networking
   hostNetwork = false;
 };
