@@ -225,6 +225,9 @@ let
       --ro-bind /etc/passwd /etc/passwd \
       --ro-bind /etc/group /etc/group \
       --ro-bind "$SHELL" "$SHELL" \
+      --ro-bind-try $HOME/.gitconfig $HOME/.gitconfig \
+      --ro-bind-try $HOME/.config/git $HOME/.config/git \
+      --ro-bind-try /etc/gitconfig /etc/gitconfig \
       --ro-bind-try $HOME/.claude $HOME/.claude \
       --ro-bind-try $HOME/.claude.json $HOME/.claude.json \
       --ro-bind-try $HOME/.pi $HOME/.pi \
