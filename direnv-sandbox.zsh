@@ -33,8 +33,20 @@ __direnv_sandbox_find_envrc() {
   done
 }
 
+# Check whether sandboxing is disabled for a given envrc directory.
+# Returns 0 (true) if disabled, 1 (false) if enabled.
+__direnv_sandbox_is_disabled() {
+  local dir="$1"
+  local disabled_dir="${XDG_DATA_HOME:-$HOME/.local/share}/direnv-sandbox/disabled"
+  local hash
+  # Hash with trailing newline, matching direnv's pathHash convention
+  hash="$(printf '%s\n' "$dir" | command sha256sum | cut -d' ' -f1)"
+  [[ -L "$disabled_dir/$hash" ]]
+}
+
 # precmd hook for the OUTER shell (unsandboxed).
-# Detects .envrc and launches a bwrap sandbox.
+# Detects .envrc and launches a bwrap sandbox, or falls back to plain
+# direnv when sandboxing is disabled for the directory.
 __direnv_sandbox_hook() {
   # Don't recurse if already inside a sandbox
   [[ -n "${_DIRENV_SANDBOX_ACTIVE:-}" ]] && return
@@ -43,7 +55,20 @@ __direnv_sandbox_hook() {
   (( ${#DIRENV_SANDBOX_CMD[@]} == 0 )) && return
 
   local project_root
-  project_root="$(__direnv_sandbox_find_envrc)" || return
+  if ! project_root="$(__direnv_sandbox_find_envrc)"; then
+    # No allowed envrc found.
+    # If direnv was active from a disabled-sandbox dir, let it unload.
+    if [[ -n "${DIRENV_DIR:-}" ]]; then
+      eval "$("${DIRENV_SANDBOX_DIRENV_BIN:-direnv}" export zsh)"
+    fi
+    return
+  fi
+
+  # Sandbox is disabled for this directory — run direnv directly (unsandboxed)
+  if __direnv_sandbox_is_disabled "$project_root"; then
+    eval "$("${DIRENV_SANDBOX_DIRENV_BIN:-direnv}" export zsh)"
+    return
+  fi
 
   # Temp file for the inner shell to communicate its final directory
   local _DIRENV_SANDBOX_EXIT_DIR_FILE

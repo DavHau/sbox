@@ -184,5 +184,114 @@ pkgs.testers.runNixOSTest {
         machine.log(f"SANDBOX_TEST2 after allow: '{val}'")
         assert val == "world", \
             f"Expected SANDBOX_TEST2=world after direnv allow, got: {val!r}"
+
+    # Exit sandbox before testing direnv-sandbox off
+    machine.send_chars("cd /\n")
+    machine.execute("rm -f /tmp/exited3")
+    machine.send_chars("echo DONE > /tmp/exited3\n")
+    machine.wait_until_succeeds("test -s /tmp/exited3", timeout=15)
+
+    # --- direnv-sandbox off/on tests (bash only) ---
+    if shell == "bash":
+
+        with subtest("direnv-sandbox off disables sandbox"):
+            # Disable sandbox for project from OUTSIDE (using path argument)
+            # so we don't trigger the sandbox by cd'ing in first.
+            machine.execute("rm -f /tmp/off-done")
+            machine.send_chars("direnv-sandbox off ~/project; echo DONE > /tmp/off-done\n")
+            machine.wait_until_succeeds("test -s /tmp/off-done", timeout=10)
+
+            # cd into project — should NOT launch a sandbox
+            machine.send_chars("cd ~/project\n")
+            # Wait for the next prompt (direnv export runs in PROMPT_COMMAND)
+            # Use a two-step marker: first trigger a prompt, then check env
+            machine.execute("rm -f /tmp/nosandbox-env")
+            machine.send_chars("echo $SANDBOX_TEST > /tmp/nosandbox-env\n")
+            machine.wait_until_succeeds("test -s /tmp/nosandbox-env", timeout=10)
+            val = machine.succeed("cat /tmp/nosandbox-env").strip()
+            machine.log(f"SANDBOX_TEST with sandbox disabled: '{val}'")
+            assert val == "hello", \
+                f"Expected SANDBOX_TEST=hello (unsandboxed), got: {val!r}"
+
+            # Verify SHLVL did NOT increase (no subshell)
+            machine.execute("rm -f /tmp/shlvl-nosandbox")
+            machine.send_chars("echo $SHLVL > /tmp/shlvl-nosandbox\n")
+            machine.wait_until_succeeds("test -s /tmp/shlvl-nosandbox", timeout=5)
+            nosandbox_shlvl = int(machine.succeed("cat /tmp/shlvl-nosandbox").strip())
+            machine.log(f"SHLVL with sandbox disabled: {nosandbox_shlvl} (initial: {initial_shlvl})")
+            assert nosandbox_shlvl == initial_shlvl, \
+                f"Expected SHLVL == {initial_shlvl} (no sandbox), got {nosandbox_shlvl}"
+
+            # Verify SANDBOX env var is NOT set (not inside bwrap)
+            machine.execute("rm -f /tmp/sandbox-var")
+            machine.send_chars("echo ''${SANDBOX:-unset} > /tmp/sandbox-var\n")
+            machine.wait_until_succeeds("test -s /tmp/sandbox-var", timeout=5)
+            sandbox_var = machine.succeed("cat /tmp/sandbox-var").strip()
+            assert sandbox_var == "unset", \
+                f"Expected SANDBOX to be unset, got: {sandbox_var!r}"
+
+        with subtest("direnv unloads when leaving disabled-sandbox dir"):
+            machine.send_chars("cd /\n")
+            machine.execute("rm -f /tmp/unload-check")
+            machine.send_chars("echo ''${SANDBOX_TEST:-unset} > /tmp/unload-check\n")
+            machine.wait_until_succeeds("test -s /tmp/unload-check", timeout=10)
+            val = machine.succeed("cat /tmp/unload-check").strip()
+            machine.log(f"SANDBOX_TEST after leaving disabled dir: '{val}'")
+            assert val == "unset", \
+                f"Expected SANDBOX_TEST to be unset after leaving, got: {val!r}"
+
+        with subtest("direnv-sandbox on re-enables sandbox"):
+            # Re-enable sandbox from outside (using path argument)
+            machine.execute("rm -f /tmp/on-done")
+            machine.send_chars("direnv-sandbox on ~/project; echo DONE > /tmp/on-done\n")
+            machine.wait_until_succeeds("test -s /tmp/on-done", timeout=10)
+
+            # cd into project — sandbox should activate again
+            machine.send_chars("cd ~/project\n")
+            machine.execute(f"rm -f {project}/sandbox-back")
+            machine.send_chars(f"echo $SANDBOX_TEST > {project}/sandbox-back\n")
+            machine.wait_until_succeeds(f"test -s {project}/sandbox-back", timeout=10)
+            val = machine.succeed(f"cat {project}/sandbox-back").strip()
+            machine.log(f"SANDBOX_TEST after re-enable: '{val}'")
+            assert val == "hello", \
+                f"Expected SANDBOX_TEST=hello after re-enable, got: {val!r}"
+
+            # Verify SHLVL increased again (sandbox subshell)
+            machine.execute(f"rm -f {project}/shlvl-reenabled")
+            machine.send_chars(f"echo $SHLVL > {project}/shlvl-reenabled\n")
+            machine.wait_until_succeeds(f"test -s {project}/shlvl-reenabled", timeout=5)
+            reenabled_shlvl = int(machine.succeed(f"cat {project}/shlvl-reenabled").strip())
+            machine.log(f"SHLVL after re-enable: {reenabled_shlvl} (initial: {initial_shlvl})")
+            assert reenabled_shlvl > initial_shlvl, \
+                f"Expected SHLVL > {initial_shlvl} after re-enable, got {reenabled_shlvl}"
+
+        with subtest("direnv-sandbox off refuses to run inside sandbox"):
+            # We're inside the sandbox from the previous test.
+            # This is security-critical: a malicious .envrc must not be able to
+            # disable the sandbox for its own directory, otherwise next time the
+            # user cd's in it would run unsandboxed.
+            machine.execute(f"rm -f {project}/off-inside")
+            machine.send_chars(f"direnv-sandbox off 2>{project}/off-inside; echo DONE >> {project}/off-inside\n")
+            machine.wait_until_succeeds(f"test -s {project}/off-inside", timeout=5)
+            output = machine.succeed(f"cat {project}/off-inside").strip()
+            machine.log(f"direnv-sandbox off inside sandbox: '{output}'")
+            assert "cannot" in output and "sandbox" in output, \
+                f"Expected sandbox error when running direnv-sandbox off inside sandbox, got: {output!r}"
+            # Must suggest the exact command the user needs to run
+            assert f"direnv-sandbox off {project}" in output, \
+                f"Expected hint with full command 'direnv-sandbox off {project}', got: {output!r}"
+
+        with subtest("disabled dir is read-only inside sandbox"):
+            # Even if a malicious .envrc bypasses the CLI check, the filesystem
+            # itself must prevent writes to the disabled directory.
+            # Try to create a symlink directly, simulating what direnv-sandbox off does.
+            machine.execute(f"rm -f {project}/ro-check")
+            machine.send_chars(f"mkdir -p ~/.local/share/direnv-sandbox/disabled 2>{project}/ro-check && ln -sfn {project} ~/.local/share/direnv-sandbox/disabled/fakehash 2>>{project}/ro-check; echo DONE >> {project}/ro-check\n")
+            machine.wait_until_succeeds(f"test -s {project}/ro-check", timeout=5)
+            output = machine.succeed(f"cat {project}/ro-check").strip()
+            machine.log(f"Direct write to disabled dir inside sandbox: '{output}'")
+            assert "DONE" in output, f"Command did not complete: {output!r}"
+            assert "Read-only" in output or "Permission denied" in output, \
+                f"Expected filesystem error writing to disabled dir, got: {output!r}"
   '';
 }

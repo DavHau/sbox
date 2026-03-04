@@ -20,6 +20,7 @@ When you `cd` into a project with an allowed `.envrc`, the shell hook detects it
 
 - Transparent entry/exit — `cd` in, `cd` out
 - Works with **bash**, **zsh**, and **fish**
+- Per-directory opt-out — `direnv-sandbox off` to disable sandboxing for trusted projects
 - Isolated PID, IPC, UTS, cgroup, and network namespaces
 - User-mode networking via slirp4netns (no root required)
 - Optional access to host services via TCP port forwarding
@@ -88,6 +89,17 @@ programs.direnv.sandbox.command = [ "/path/to/my-wrapper" "--custom-flag" ];
 ```
 
 The shell to exec is appended after `--` automatically.
+
+## Disabling the sandbox for specific projects
+
+```bash
+direnv-sandbox off ~/my-trusted-project   # disable
+direnv-sandbox on  ~/my-trusted-project   # re-enable
+```
+
+The path is optional — without it, the command searches upward from `$PWD`.
+
+This command must be run **outside** the sandbox. Code inside a sandbox cannot disable its own sandboxing (the disabled state is stored read-only inside the sandbox).
 
 ## Running tests
 

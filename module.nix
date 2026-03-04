@@ -17,6 +17,7 @@ let
   sbox = (self.packages.${pkgs.system}.sbox).override {
     bubblewrapArgs = [
       "--ro-bind-try" "$HOME/.local/share/direnv" "$HOME/.local/share/direnv"
+      "--ro-bind-try" "$HOME/.local/share/direnv-sandbox" "$HOME/.local/share/direnv-sandbox"
       "--bind" "$_DIRENV_SANDBOX_EXIT_DIR_FILE" "$_DIRENV_SANDBOX_EXIT_DIR_FILE"
     ];
   };
@@ -88,7 +89,7 @@ in
       }
     ];
 
-    environment.systemPackages = [ pkgs.bubblewrap ];
+    environment.systemPackages = [ pkgs.bubblewrap pkg ];
 
     # Disable direnv's own shell integration — we replace it with sandbox-aware hooks.
     # This only disables the eval "$(direnv hook <shell>)" lines, not other

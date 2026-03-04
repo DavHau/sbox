@@ -34,6 +34,16 @@ function __direnv_sandbox_find_envrc
     end
 end
 
+# Check whether sandboxing is disabled for a given envrc directory.
+# Returns 0 (true) if disabled, 1 (false) if enabled.
+function __direnv_sandbox_is_disabled
+    set -l dir $argv[1]
+    set -l disabled_dir (set -q XDG_DATA_HOME; and echo $XDG_DATA_HOME; or echo $HOME/.local/share)/direnv-sandbox/disabled
+    # Hash with trailing newline, matching direnv's pathHash convention
+    set -l hash (printf '%s\n' $dir | command sha256sum | cut -d' ' -f1)
+    test -L "$disabled_dir/$hash"
+end
+
 # --- INNER shell mode: exit monitor ---
 if set -q _DIRENV_SANDBOX_ACTIVE
     # Set up standard direnv hook inside the sandbox
@@ -81,8 +91,40 @@ else
         set -q _DIRENV_SANDBOX_ACTIVE; and return 0
         set -q DIRENV_SANDBOX_CMD; or return 0
         test (count $DIRENV_SANDBOX_CMD) -eq 0; and return 0
-        __direnv_sandbox_find_envrc; or return 0
+
+        set -l direnv_bin (set -q DIRENV_SANDBOX_DIRENV_BIN; and echo $DIRENV_SANDBOX_DIRENV_BIN; or echo direnv)
+
+        if not __direnv_sandbox_find_envrc
+            # No envrc found. If direnv was active from a disabled-sandbox dir, let it unload.
+            if set -q DIRENV_DIR
+                eval ($direnv_bin export fish)
+            end
+            return 0
+        end
+
+        # Sandbox is disabled for this directory — run direnv directly (unsandboxed)
+        if __direnv_sandbox_is_disabled $__direnv_sandbox_project_root
+            eval ($direnv_bin export fish)
+            return 0
+        end
+
         __direnv_sandbox_run
+    end
+
+    # Prompt hook: keeps direnv running for disabled-sandbox directories.
+    # Only calls direnv export when DIRENV_DIR is set (an unsandboxed direnv
+    # session is active) or when we're in a disabled-sandbox dir that hasn't
+    # been loaded yet (e.g. terminal opened directly in the project).
+    function __direnv_sandbox_prompt_hook --on-event fish_prompt
+        set -q _DIRENV_SANDBOX_ACTIVE; and return 0
+        set -l direnv_bin (set -q DIRENV_SANDBOX_DIRENV_BIN; and echo $DIRENV_SANDBOX_DIRENV_BIN; or echo direnv)
+        if set -q DIRENV_DIR
+            # Active unsandboxed direnv session — let direnv handle reloads/unloads
+            eval ($direnv_bin export fish)
+        else if __direnv_sandbox_find_envrc; and __direnv_sandbox_is_disabled $__direnv_sandbox_project_root
+            # In a disabled-sandbox dir with no active session (e.g. terminal startup)
+            eval ($direnv_bin export fish)
+        end
     end
 
     # Re-check after direnv allow/permit/grant in case we're already

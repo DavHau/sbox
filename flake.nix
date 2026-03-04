@@ -24,9 +24,12 @@
           src = ./.;
           installPhase = ''
             mkdir -p $out/share/direnv-sandbox
+            mkdir -p $out/bin
             cp direnv-sandbox.bash $out/share/direnv-sandbox/
             cp direnv-sandbox.zsh $out/share/direnv-sandbox/
             cp direnv-sandbox.fish $out/share/direnv-sandbox/
+            cp direnv-sandbox-cmd.bash $out/bin/direnv-sandbox
+            chmod +x $out/bin/direnv-sandbox
           '';
         };
       });
