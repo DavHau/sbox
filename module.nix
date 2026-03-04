@@ -9,7 +9,15 @@ let
   cfg = config.programs.direnv.sandbox;
   direnv-cfg = config.programs.direnv;
   pkg = cfg.package;
-  escapedCmd = lib.escapeShellArgs cfg.command;
+  # Like lib.escapeShellArg but uses double quotes instead of single quotes
+  # when quoting is needed, so that shell variables like $HOME in bind paths
+  # (e.g. bind = [ "$HOME/.cache" ]) expand naturally at shell init time.
+  escapeShellArgWithExpansion = arg:
+    let string = toString arg;
+    in if builtins.match "[[:alnum:],._+:@%/-]+" string != null
+       then string
+       else ''"'' + builtins.replaceStrings [ ''"'' "\\" ] [ ''\"'' "\\\\" ] string + ''"'';
+  escapedCmd = lib.concatMapStringsSep " " escapeShellArgWithExpansion cfg.command;
 
   # sbox with direnv-specific bind mounts:
   #  - direnv allow/deny database (read-only)

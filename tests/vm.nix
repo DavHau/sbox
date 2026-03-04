@@ -45,6 +45,7 @@ pkgs.testers.runNixOSTest {
         enable = true;
         sandbox = {
           enable = true;
+          bind = [ "$HOME/.cache" ];
         };
       };
 
@@ -68,6 +69,10 @@ pkgs.testers.runNixOSTest {
           mkdir -p /home/alice/project-notallowed
           echo 'export SANDBOX_TEST_NOTALLOWED=nope' > /home/alice/project-notallowed/.envrc
           chown -R alice:users /home/alice/project-notallowed
+
+          mkdir -p /home/alice/.cache
+          echo "bind-works" > /home/alice/.cache/bind-test-file
+          chown -R alice:users /home/alice/.cache
 
           # Symlinked project: real dir is ~/synced/projects/symtest,
           # accessed via ~/projects-link/symtest
@@ -234,6 +239,27 @@ pkgs.testers.runNixOSTest {
         machine.log(f"Inside SHLVL: {inside_shlvl} (initial: {initial_shlvl})")
         assert inside_shlvl > initial_shlvl, \
             f"Expected SHLVL > {initial_shlvl} inside sandbox, got {inside_shlvl}"
+
+    with subtest("bind mount with path under HOME is accessible inside sandbox"):
+        # The sandbox is configured with bind = [ "$HOME/.cache" ], matching
+        # the README example. Verify the bind-mounted path is readable and
+        # writable from inside the sandbox.
+        machine.execute(f"rm -f {project}/bind-read-check")
+        machine.send_chars(f"cat $HOME/.cache/bind-test-file > {project}/bind-read-check\n")
+        machine.wait_until_succeeds(f"test -s {project}/bind-read-check", timeout=10)
+        val = machine.succeed(f"cat {project}/bind-read-check").strip()
+        machine.log(f"bind-test-file content: '{val}'")
+        assert val == "bind-works", \
+            f"Expected 'bind-works' from bind-mounted $HOME/.cache, got: {val!r}"
+
+        # Verify write access (bind, not ro-bind)
+        machine.execute(f"rm -f {project}/bind-write-check")
+        machine.send_chars(f"echo written-from-sandbox > $HOME/.cache/sandbox-wrote && echo ok > {project}/bind-write-check\n")
+        machine.wait_until_succeeds(f"test -s {project}/bind-write-check", timeout=10)
+        write_val = machine.succeed("cat /home/alice/.cache/sandbox-wrote").strip()
+        machine.log(f"sandbox-wrote content: '{write_val}'")
+        assert write_val == "written-from-sandbox", \
+            f"Expected 'written-from-sandbox' written through bind mount, got: {write_val!r}"
 
     with subtest("sandbox exit on cd out"):
         # Trigger exit by navigating outside project tree
