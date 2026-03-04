@@ -166,6 +166,20 @@ let
       read -ra EXTRA_BIND_ARGS <<< "$__SANDBOX_BIND_ARGS"
     fi
 
+    # Parent directory bind mount (read-only or read-write).
+    # Placed before the project dir mount so that bwrap's --bind for the
+    # project itself overlays it with full read-write access.
+    PARENT_BIND_ARGS=()
+    ALLOW_PARENT="''${__SANDBOX_ALLOW_PARENT:-off}"
+    if [[ "$ALLOW_PARENT" != "off" ]]; then
+      PARENT_DIR="$(dirname "$PROJECT_DIR")"
+      if [[ "$ALLOW_PARENT" == "write" ]]; then
+        PARENT_BIND_ARGS+=(--bind "$PARENT_DIR" "$PARENT_DIR")
+      else
+        PARENT_BIND_ARGS+=(--ro-bind "$PARENT_DIR" "$PARENT_DIR")
+      fi
+    fi
+
     # Use explicit command if given (-- <cmd>), otherwise the configured entrypoint
     if [ ''${#EXEC_CMD[@]} -gt 0 ]; then
       SANDBOX_ENTRYPOINT=("''${EXEC_CMD[@]}")
@@ -235,6 +249,7 @@ let
       "''${EDITOR_ARGS[@]}" \
       "''${EXTRA_BIND_ARGS[@]}" \
       ${bubblewrapArgs} \
+      "''${PARENT_BIND_ARGS[@]}" \
       --bind "$PROJECT_DIR" "$PROJECT_DIR" \
       --chdir "$WORK_DIR" \
       --setenv HOME "$HOME" \
@@ -253,6 +268,7 @@ let
     set -euo pipefail
 
     USE_HOST_NET=0
+    ALLOW_PARENT="off"
     FORWARD_PORTS=()
     BIND_ARGS=()
     ARGS=()
@@ -267,6 +283,10 @@ let
             echo "Error: --network requires 'host' as argument" >&2
             exit 1
           fi
+          ;;
+        --allow-parent)
+          ALLOW_PARENT="$2"
+          shift 2
           ;;
         -p)
           FORWARD_PORTS+=("$2")
@@ -300,6 +320,7 @@ let
 
     if [ "$USE_HOST_NET" = 1 ]; then
       __SANDBOX_BIND_ARGS="''${BIND_ARGS[*]}" \
+      __SANDBOX_ALLOW_PARENT="$ALLOW_PARENT" \
         exec ${util-linux}/bin/unshare --user --map-root-user \
           -- ${innerScript} "''${INNER_ARGS[@]}"
     fi
@@ -358,6 +379,7 @@ let
     __SANDBOX_FORWARD_PORTS="''${FORWARD_PORTS[*]}" \
     __SANDBOX_WORK="$WORK" \
     __SANDBOX_BIND_ARGS="''${BIND_ARGS[*]}" \
+    __SANDBOX_ALLOW_PARENT="$ALLOW_PARENT" \
       ${util-linux}/bin/unshare --user --map-root-user --net \
         -- ${innerScript} "''${INNER_ARGS[@]}"
   '';

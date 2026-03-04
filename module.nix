@@ -33,7 +33,8 @@ let
     (lib.concatMap (p: [ "--bind" p p ]) cfg.bind)
     ++ (lib.concatMap (p: [ "--ro-bind" p p ]) cfg.bindReadOnly)
     ++ (lib.concatMap (p: [ "-p" (toString p) ]) cfg.allowedTCPPorts)
-    ++ (lib.optionals cfg.hostNetwork [ "--network" "host" ]);
+    ++ (lib.optionals cfg.hostNetwork [ "--network" "host" ])
+    ++ (lib.optionals (cfg.allowParent != "off") [ "--allow-parent" cfg.allowParent ]);
 in
 {
   options.programs.direnv.sandbox = {
@@ -80,6 +81,16 @@ in
       default = [];
       description = "Host TCP ports to forward into the sandbox.";
       example = [ 8080 5432 ];
+    };
+
+    allowParent = lib.mkOption {
+      type = lib.types.enum [ "off" "read" "write" ];
+      default = "off";
+      description = ''
+        Mount the parent directory of the project inside the sandbox.
+        "read" mounts it read-only, "write" mounts it read-write.
+        The project directory itself is always mounted read-write regardless.
+      '';
     };
 
     hostNetwork = lib.mkOption {
