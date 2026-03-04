@@ -28,6 +28,10 @@ pkgs.testers.runNixOSTest {
     {
       imports = [ self.nixosModules.direnv-sandbox ];
 
+      # No networking needed — the sandbox creates its own isolated
+      # network namespace via slirp4netns. Disabling speeds up boot.
+      networking.useDHCP = false;
+
       users.users.alice = {
         isNormalUser = true;
         password = "foobar";
