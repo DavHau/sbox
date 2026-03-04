@@ -82,6 +82,27 @@ pkgs.testers.runNixOSTest {
     };
 
   testScript = ''
+    import test_driver.machine
+
+    _orig_retry = test_driver.machine.retry
+
+    def fast_retry(fn, timeout_seconds=900):
+        import time
+        from test_driver.errors import RequestedAssertionFailed
+
+        start_time = time.monotonic()
+        while time.monotonic() - start_time < timeout_seconds:
+            if fn(False):
+                return
+            time.sleep(0.1)
+        elapsed = time.monotonic() - start_time
+        if not fn(True):
+            raise RequestedAssertionFailed(
+                f"action timed out after {elapsed:.2f} seconds (timeout={timeout_seconds})"
+            )
+
+    test_driver.machine.retry = fast_retry
+
     project = "/home/alice/project"
     shell = "${shell}"
 
