@@ -120,6 +120,15 @@ let
       [ -e "$dev" ] && GPU_ARGS+=(--dev-bind-try "$dev" "$dev")
     done
 
+    # Wayland socket forwarding (requires both XDG_RUNTIME_DIR and WAYLAND_DISPLAY)
+    WAYLAND_ARGS=()
+    if [ -n "''${XDG_RUNTIME_DIR:-}" ]; then
+      WAYLAND_ARGS+=(--dir "$XDG_RUNTIME_DIR")
+      if [ -n "''${WAYLAND_DISPLAY:-}" ]; then
+        WAYLAND_ARGS+=(--ro-bind-try "$XDG_RUNTIME_DIR/$WAYLAND_DISPLAY" "$XDG_RUNTIME_DIR/$WAYLAND_DISPLAY")
+      fi
+    fi
+
     # Mount all directories from the host PATH into the sandbox
     PATH_BIND_ARGS=()
     SANDBOX_PATH=""
@@ -209,6 +218,7 @@ let
       --dir /run \
       --ro-bind-try /run/opengl-driver /run/opengl-driver \
       --ro-bind-try /run/opengl-driver-32 /run/opengl-driver-32 \
+      "''${WAYLAND_ARGS[@]}" \
       --dir /usr/bin \
       --dir /bin \
       --dir /etc/ssl \
@@ -228,6 +238,7 @@ let
       --ro-bind-try /etc/zshrc /etc/zshrc \
       --ro-bind-try /etc/zsh /etc/zsh \
       --ro-bind-try /etc/fish /etc/fish \
+      --ro-bind /etc/nix /etc/nix \
       --ro-bind-try /etc/static /etc/static \
       --ro-bind "$RESOLV" /etc/resolv.conf \
       --ro-bind ${customHosts} /etc/hosts \
