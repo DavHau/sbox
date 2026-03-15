@@ -19,16 +19,19 @@ let
        else ''"'' + builtins.replaceStrings [ ''"'' "\\" ] [ ''\"'' "\\\\" ] string + ''"'';
   escapedCmd = lib.concatMapStringsSep " " escapeShellArgWithExpansion cfg.command;
 
+  sboxBase = self.packages.${pkgs.system}.sbox;
+
   # sbox with direnv-specific bind mounts:
   #  - direnv allow/deny database (read-only)
   #  - exit-dir file for CWD sync between inner and outer shell
-  sbox = (self.packages.${pkgs.system}.sbox).override {
+  sboxDirenv = sboxBase.override {
     bubblewrapArgs = [
       "--ro-bind-try" "$HOME/.local/share/direnv" "$HOME/.local/share/direnv"
       "--ro-bind-try" "$HOME/.local/share/direnv-sandbox" "$HOME/.local/share/direnv-sandbox"
       "--bind" "$_DIRENV_SANDBOX_EXIT_DIR_FILE" "$_DIRENV_SANDBOX_EXIT_DIR_FILE"
     ];
   };
+
   sboxArgs =
     (lib.concatMap (p: [ "--bind" p p ]) cfg.bind)
     ++ (lib.concatMap (p: [ "--ro-bind" p p ]) cfg.bindReadOnly)
@@ -37,11 +40,16 @@ let
     ++ (lib.optionals cfg.hostNetwork [ "--network" "host" ])
     ++ (lib.optionals (cfg.allowParent != "off") [ "--allow-parent" cfg.allowParent ]);
 
-  # Wrapper that bakes in all module-configured args so users can just run
-  # `sbox` (or `sbox <dir>`) without repeating flags.
   escapedSboxArgs = lib.concatMapStringsSep " " escapeShellArgWithExpansion sboxArgs;
+
+  # Standalone wrapper: bakes in module-configured args for manual use.
   sboxWrapped = pkgs.writeShellScriptBin "sbox" ''
-    exec ${sbox}/bin/sbox ${escapedSboxArgs} "$@"
+    exec ${sboxBase}/bin/sbox ${escapedSboxArgs} "$@"
+  '';
+
+  # Direnv wrapper: same args, but includes direnv-specific bind mounts.
+  sboxDirenvWrapped = pkgs.writeShellScriptBin "sbox" ''
+    exec ${sboxDirenv}/bin/sbox ${escapedSboxArgs} "$@"
   '';
 in
 {
@@ -56,7 +64,7 @@ in
 
     command = lib.mkOption {
       type = lib.types.listOf lib.types.str;
-      default = [ "${sboxWrapped}/bin/sbox" ];
+      default = [ "${sboxDirenvWrapped}/bin/sbox" ];
       description = "The sandbox command and arguments. The shell to exec is appended after '--'.";
       example = [
         "bwrap"
@@ -113,54 +121,70 @@ in
       default = false;
       description = "Use host network instead of isolated network namespace.";
     };
-  };
 
-  config = lib.mkIf (direnv-cfg.enable && cfg.enable) {
-    assertions = [
-      {
-        assertion = cfg.command != [ ];
-        message = "programs.direnv.sandbox.command must be set when sandbox is enabled.";
-      }
-    ];
-
-    environment.systemPackages = [ pkgs.bubblewrap pkg sboxWrapped ];
-
-    # Disable direnv's own shell integration — we replace it with sandbox-aware hooks.
-    # This only disables the eval "$(direnv hook <shell>)" lines, not other
-    # interactiveShellInit content from other modules.
-    programs.direnv = {
-      enableBashIntegration = lib.mkForce false;
-      enableZshIntegration = lib.mkForce false;
-      enableFishIntegration = lib.mkForce false;
+    sbox.enable = lib.mkOption {
+      type = lib.types.bool;
+      default = true;
+      description = ''
+        Add the sbox command to systemPackages. The wrapper inherits all
+        sandbox options configured via this module (bind mounts, ports, etc.).
+        Set to false to omit sbox from the system PATH.
+      '';
     };
-
-    # Add sandbox-aware hook sourcing. These append normally to
-    # interactiveShellInit without overriding other modules' content.
-    programs.bash.interactiveShellInit = ''
-      DIRENV_SANDBOX_CMD=(${escapedCmd})
-      DIRENV_SANDBOX_DIRENV_BIN="${lib.getExe direnv-cfg.package}"
-      source "${pkg}/share/direnv-sandbox/direnv-sandbox.bash"
-    '';
-
-    programs.zsh.interactiveShellInit = ''
-      DIRENV_SANDBOX_CMD=(${escapedCmd})
-      DIRENV_SANDBOX_DIRENV_BIN="${lib.getExe direnv-cfg.package}"
-      source "${pkg}/share/direnv-sandbox/direnv-sandbox.zsh"
-    '';
-
-    # Fish: the direnv package ships share/fish/vendor_conf.d/direnv.fish
-    # which auto-hooks direnv regardless of enableFishIntegration. Since
-    # vendor_conf.d is sourced before interactiveShellInit, we erase its
-    # functions here and replace them with our sandbox-aware hook.
-    # This goes into /etc/fish/config.fish via the NixOS fish module,
-    # which fish sources via its built-in NixOS support (even inside bwrap,
-    # as long as /etc/fish is bind-mounted).
-    programs.fish.interactiveShellInit = ''
-      functions --erase __direnv_export_eval 2>/dev/null
-      functions --erase __direnv_cd_hook 2>/dev/null
-      set -gx DIRENV_SANDBOX_CMD ${escapedCmd}
-      set -gx DIRENV_SANDBOX_DIRENV_BIN "${lib.getExe direnv-cfg.package}"
-      source "${pkg}/share/direnv-sandbox/direnv-sandbox.fish"
-    '';
   };
+
+  config = lib.mkMerge [
+    (lib.mkIf cfg.sbox.enable {
+      environment.systemPackages = [ pkgs.bubblewrap sboxWrapped ];
+    })
+
+    (lib.mkIf (direnv-cfg.enable && cfg.enable) {
+      assertions = [
+        {
+          assertion = cfg.command != [ ];
+          message = "programs.direnv.sandbox.command must be set when sandbox is enabled.";
+        }
+      ];
+
+      environment.systemPackages = [ pkg ];
+
+      # Disable direnv's own shell integration — we replace it with sandbox-aware hooks.
+      # This only disables the eval "$(direnv hook <shell>)" lines, not other
+      # interactiveShellInit content from other modules.
+      programs.direnv = {
+        enableBashIntegration = lib.mkForce false;
+        enableZshIntegration = lib.mkForce false;
+        enableFishIntegration = lib.mkForce false;
+      };
+
+      # Add sandbox-aware hook sourcing. These append normally to
+      # interactiveShellInit without overriding other modules' content.
+      programs.bash.interactiveShellInit = ''
+        DIRENV_SANDBOX_CMD=(${escapedCmd})
+        DIRENV_SANDBOX_DIRENV_BIN="${lib.getExe direnv-cfg.package}"
+        source "${pkg}/share/direnv-sandbox/direnv-sandbox.bash"
+      '';
+
+      programs.zsh.interactiveShellInit = ''
+        DIRENV_SANDBOX_CMD=(${escapedCmd})
+        DIRENV_SANDBOX_DIRENV_BIN="${lib.getExe direnv-cfg.package}"
+        source "${pkg}/share/direnv-sandbox/direnv-sandbox.zsh"
+      '';
+
+      # Fish: the direnv package ships share/fish/vendor_conf.d/direnv.fish
+      # which auto-hooks direnv regardless of enableFishIntegration. Since
+      # vendor_conf.d is sourced before interactiveShellInit, we erase its
+      # functions here and replace them with our sandbox-aware hook.
+      # This goes into /etc/fish/config.fish via the NixOS fish module,
+      # which fish sources via its built-in NixOS support (even inside bwrap,
+      # as long as /etc/fish is bind-mounted).
+      programs.fish.interactiveShellInit = ''
+        functions --erase __direnv_export_eval 2>/dev/null
+        functions --erase __direnv_cd_hook 2>/dev/null
+        set -gx DIRENV_SANDBOX_CMD ${escapedCmd}
+        set -gx DIRENV_SANDBOX_DIRENV_BIN "${lib.getExe direnv-cfg.package}"
+        source "${pkg}/share/direnv-sandbox/direnv-sandbox.fish"
+      '';
+    })
+  ];
 }
