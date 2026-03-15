@@ -126,6 +126,16 @@ pkgs.testers.runNixOSTest {
         assert "sandbox-hello" in val, \
             f"Expected 'sandbox-hello' from sandbox service via --expose-port, got: {val!r}"
 
+    with subtest("basic sandbox: uid and gid are preserved"):
+        host_id = machine.succeed("su - alice -c 'id -u'").strip()
+        host_gid = machine.succeed("su - alice -c 'id -g'").strip()
+        sandbox_id = sbox_run("id -u")
+        sandbox_gid = sbox_run("id -g")
+        assert sandbox_id == host_id, \
+            f"Expected UID {host_id} inside sandbox, got: {sandbox_id!r}"
+        assert sandbox_gid == host_gid, \
+            f"Expected GID {host_gid} inside sandbox, got: {sandbox_gid!r}"
+
     with subtest("network host: sandbox shares host network"):
         val = sbox_run(
             "ip link show lo >/dev/null 2>&1 && echo has-lo || echo no-lo",

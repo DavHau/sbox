@@ -203,6 +203,13 @@ let
       *) WORK_DIR="$PROJECT_DIR" ;;
     esac
 
+    # Restore the original UID/GID inside the sandbox so the user
+    # identity is preserved across the user-namespace boundary.
+    ID_ARGS=()
+    if [ -n "''${__SANDBOX_UID:-}" ]; then
+      ID_ARGS+=(--unshare-user --uid "$__SANDBOX_UID" --gid "$__SANDBOX_GID")
+    fi
+
     echo "Starting bubblewrap sandbox in: $PROJECT_DIR"
     exec ${bubblewrap}/bin/bwrap \
       --die-with-parent \
@@ -210,6 +217,7 @@ let
       --unshare-ipc \
       --unshare-uts \
       --unshare-cgroup \
+      "''${ID_ARGS[@]}" \
       --proc /proc \
       --dev /dev \
       "''${GPU_ARGS[@]}" \
@@ -369,9 +377,14 @@ USAGE
       INNER_ARGS+=(-- "''${EXEC_CMD[@]}")
     fi
 
+    ORIG_UID=$(id -u)
+    ORIG_GID=$(id -g)
+
     if [ "$USE_HOST_NET" = 1 ]; then
       __SANDBOX_BIND_ARGS="''${BIND_ARGS[*]}" \
       __SANDBOX_ALLOW_PARENT="$ALLOW_PARENT" \
+      __SANDBOX_UID="$ORIG_UID" \
+      __SANDBOX_GID="$ORIG_GID" \
         exec ${util-linux}/bin/unshare --user --map-root-user \
           -- ${innerScript} "''${INNER_ARGS[@]}"
     fi
@@ -444,6 +457,8 @@ USAGE
     __SANDBOX_WORK="$WORK" \
     __SANDBOX_BIND_ARGS="''${BIND_ARGS[*]}" \
     __SANDBOX_ALLOW_PARENT="$ALLOW_PARENT" \
+    __SANDBOX_UID="$ORIG_UID" \
+    __SANDBOX_GID="$ORIG_GID" \
       ${util-linux}/bin/unshare --user --map-root-user --net \
         -- ${innerScript} "''${INNER_ARGS[@]}"
   '';
