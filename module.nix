@@ -36,6 +36,13 @@ let
     ++ (lib.concatMap (p: [ "--expose-port" (toString p) ]) cfg.exposedTCPPorts)
     ++ (lib.optionals cfg.hostNetwork [ "--network" "host" ])
     ++ (lib.optionals (cfg.allowParent != "off") [ "--allow-parent" cfg.allowParent ]);
+
+  # Wrapper that bakes in all module-configured args so users can just run
+  # `sbox` (or `sbox <dir>`) without repeating flags.
+  escapedSboxArgs = lib.concatMapStringsSep " " escapeShellArgWithExpansion sboxArgs;
+  sboxWrapped = pkgs.writeShellScriptBin "sbox" ''
+    exec ${sbox}/bin/sbox ${escapedSboxArgs} "$@"
+  '';
 in
 {
   options.programs.direnv.sandbox = {
@@ -49,7 +56,7 @@ in
 
     command = lib.mkOption {
       type = lib.types.listOf lib.types.str;
-      default = [ "${sbox}/bin/sbox" ] ++ sboxArgs;
+      default = [ "${sboxWrapped}/bin/sbox" ];
       description = "The sandbox command and arguments. The shell to exec is appended after '--'.";
       example = [
         "bwrap"
@@ -116,7 +123,7 @@ in
       }
     ];
 
-    environment.systemPackages = [ pkgs.bubblewrap pkg ];
+    environment.systemPackages = [ pkgs.bubblewrap pkg sboxWrapped ];
 
     # Disable direnv's own shell integration — we replace it with sandbox-aware hooks.
     # This only disables the eval "$(direnv hook <shell>)" lines, not other
