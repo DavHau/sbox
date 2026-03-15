@@ -99,7 +99,7 @@ __direnv_sandbox_hook() {
 
   # Sync outer shell's CWD with where the user navigated inside the sandbox
   if [[ -s "$_DIRENV_SANDBOX_EXIT_DIR_FILE" ]]; then
-    builtin cd -- "$(< "$_DIRENV_SANDBOX_EXIT_DIR_FILE")" 2>/dev/null
+    builtin cd -- "$(< "$_DIRENV_SANDBOX_EXIT_DIR_FILE")" 2>/dev/null || :
   fi
   rm -f "$_DIRENV_SANDBOX_EXIT_DIR_FILE" 2>/dev/null
 
