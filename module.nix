@@ -39,8 +39,8 @@ let
   };
 
   sboxArgs =
-    (lib.concatMap (p: [ "--bind" p p ]) cfg.bind)
-    ++ (lib.concatMap (p: [ "--ro-bind" p p ]) cfg.bindReadOnly)
+    (lib.concatMap (p: [ "--bind-try" p p ]) cfg.bind)
+    ++ (lib.concatMap (p: [ "--ro-bind-try" p p ]) cfg.bindReadOnly)
     ++ (lib.concatMap (p: [ "--allow-port" (toString p) ]) cfg.allowedTCPPorts)
     ++ (lib.concatMap (p: [ "--expose-port" (toString p) ]) cfg.exposedTCPPorts)
     ++ (lib.optionals cfg.hostNetwork [ "--network" "host" ])

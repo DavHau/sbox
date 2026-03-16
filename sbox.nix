@@ -319,7 +319,9 @@ Options:
   --allow-port, -p PORT   Forward a host TCP port into the sandbox
   --expose-port PORT      Expose a sandbox TCP port to the host
   --bind SRC DEST         Bind-mount SRC to DEST (read-write) inside the sandbox
+  --bind-try SRC DEST     Like --bind, but skip silently if SRC does not exist
   --ro-bind SRC DEST      Bind-mount SRC to DEST (read-only) inside the sandbox
+  --ro-bind-try SRC DEST  Like --ro-bind, but skip silently if SRC does not exist
   -h, --help              Show this help message
 
 Examples:
@@ -362,8 +364,16 @@ USAGE
           BIND_ARGS+=(--bind "$2" "$3")
           shift 3
           ;;
+        --bind-try)
+          BIND_ARGS+=(--bind-try "$2" "$3")
+          shift 3
+          ;;
         --ro-bind)
           BIND_ARGS+=(--ro-bind "$2" "$3")
+          shift 3
+          ;;
+        --ro-bind-try)
+          BIND_ARGS+=(--ro-bind-try "$2" "$3")
           shift 3
           ;;
         --)
