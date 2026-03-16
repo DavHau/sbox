@@ -50,7 +50,8 @@ let
     ++ (lib.concatMap (p: [ "--allow-port" (toString p) ]) cfg.allowedTCPPorts)
     ++ (lib.concatMap (p: [ "--expose-port" (toString p) ]) cfg.exposedTCPPorts)
     ++ (lib.optionals cfg.hostNetwork [ "--network" "host" ])
-    ++ (lib.optionals (cfg.allowParent != "off") [ "--allow-parent" cfg.allowParent ]);
+    ++ (lib.optionals (cfg.allowParent != "off") [ "--allow-parent" cfg.allowParent ])
+    ++ (lib.optionals cfg.allowAudio [ "--audio" ]);
 
   escapedSboxArgs = lib.concatMapStringsSep " " escapeShellArgWithExpansion sboxArgs;
 
@@ -154,6 +155,12 @@ in
       type = lib.types.bool;
       default = false;
       description = "Use host network instead of isolated network namespace.";
+    };
+
+    allowAudio = lib.mkOption {
+      type = lib.types.bool;
+      default = false;
+      description = "Allow audio inside the sandbox by passing through the host PipeWire socket.";
     };
 
     packages = lib.mkOption {

@@ -35,7 +35,6 @@
   coreutils,
   bash,
   writeText,
-
   # configuration of the wrapper
   packages ? [],
   bubblewrapArgs ? [],
@@ -133,6 +132,15 @@ let
       if [ -n "''${WAYLAND_DISPLAY:-}" ]; then
         WAYLAND_ARGS+=(--ro-bind-try "$XDG_RUNTIME_DIR/$WAYLAND_DISPLAY" "$XDG_RUNTIME_DIR/$WAYLAND_DISPLAY")
       fi
+      # Audio: bind PipeWire and PulseAudio sockets.
+      if [ "''${__SANDBOX_USE_AUDIO:-0}" = 1 ]; then
+        WAYLAND_ARGS+=(--ro-bind-try "$XDG_RUNTIME_DIR/pipewire-0" "$XDG_RUNTIME_DIR/pipewire-0")
+        WAYLAND_ARGS+=(--ro-bind-try "$XDG_RUNTIME_DIR/pulse/native" "$XDG_RUNTIME_DIR/pulse/native")
+      fi
+    fi
+    # ALSA device nodes
+    if [ "''${__SANDBOX_USE_AUDIO:-0}" = 1 ]; then
+      WAYLAND_ARGS+=(--dev-bind-try /dev/snd /dev/snd)
     fi
 
     # Mount all directories from the host PATH into the sandbox
@@ -294,6 +302,7 @@ let
     set -euo pipefail
 
     USE_HOST_NET=0
+    USE_AUDIO=0
     ALLOW_PARENT="off"
     HOST_PORTS=()
     SANDBOX_PORTS=()
@@ -322,6 +331,7 @@ Options:
   --bind-try SRC DEST     Like --bind, but skip silently if SRC does not exist
   --ro-bind SRC DEST      Bind-mount SRC to DEST (read-only) inside the sandbox
   --ro-bind-try SRC DEST  Like --ro-bind, but skip silently if SRC does not exist
+  --audio                 Allow audio playback and capture (PipeWire passthrough)
   -h, --help              Show this help message
 
 Examples:
@@ -347,6 +357,10 @@ USAGE
             echo "Error: --network requires 'host' as argument" >&2
             exit 1
           fi
+          ;;
+        --audio)
+          USE_AUDIO=1
+          shift
           ;;
         --allow-parent)
           ALLOW_PARENT="$2"
@@ -402,6 +416,7 @@ USAGE
       __SANDBOX_ALLOW_PARENT="$ALLOW_PARENT" \
       __SANDBOX_UID="$ORIG_UID" \
       __SANDBOX_GID="$ORIG_GID" \
+      __SANDBOX_USE_AUDIO="$USE_AUDIO" \
         exec ${util-linux}/bin/unshare --user --map-root-user \
           -- ${innerScript} "''${INNER_ARGS[@]}"
     fi
@@ -409,9 +424,9 @@ USAGE
     WORK=$(mktemp -d)
 
     cleanup() {
-      kill "$SLIRP_PID" 2>/dev/null || true
+      kill "$SLIRP_PID" 2>/dev/null || :
       for pid in "''${SOCAT_PIDS[@]}"; do
-        kill "$pid" 2>/dev/null || true
+        kill "$pid" 2>/dev/null || :
       done
       rm -rf "$WORK"
     }
@@ -476,6 +491,7 @@ USAGE
     __SANDBOX_ALLOW_PARENT="$ALLOW_PARENT" \
     __SANDBOX_UID="$ORIG_UID" \
     __SANDBOX_GID="$ORIG_GID" \
+    __SANDBOX_USE_AUDIO="$USE_AUDIO" \
       ${util-linux}/bin/unshare --user --map-root-user --net \
         -- ${innerScript} "''${INNER_ARGS[@]}"
   '';
