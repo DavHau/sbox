@@ -7,7 +7,10 @@
       "Bash(jj diff:*)",
       "Bash(find /home/grmpf/synced/projects/direnv-sandbox -type f \\\\\\( -name \"*.sh\" -o -name \"*test*\" -o -name \"*sbox*\" \\\\\\) 2>/dev/null | grep -v .direnv)",
       "Bash(find /home/grmpf/synced/projects/direnv-sandbox -type f \\\\\\( -name \"README*\" -o -name \"*.md\" \\\\\\) 2>/dev/null | grep -v .direnv)",
-      "Bash(jj log:*)"
+      "Bash(jj log:*)",
+      "Read(//home/grmpf/.claude/projects/**)",
+      "Read(//home/grmpf/**)",
+      "Read(//home/grmpf/.claude/statsig/**)"
     ]
   }
 }

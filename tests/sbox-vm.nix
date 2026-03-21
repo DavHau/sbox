@@ -147,6 +147,35 @@ pkgs.testers.runNixOSTest {
         assert sandbox_gid == host_gid, \
             f"Expected GID {host_gid} inside sandbox, got: {sandbox_gid!r}"
 
+    with subtest("persist: data survives across sessions"):
+        # First session: write a file into the persisted path
+        sbox_run(
+            "mkdir -p /home/alice/.teststate && echo persist-ok > /home/alice/.teststate/marker",
+            "--persist /home/alice/.teststate",
+        )
+        # Second session: verify the file is still there
+        val = sbox_run(
+            "cat /home/alice/.teststate/marker",
+            "--persist /home/alice/.teststate",
+        )
+        assert val == "persist-ok", \
+            f"Expected persisted data to survive across sessions, got: {val!r}"
+
+    with subtest("persist: backing dir is created in .sbox/state/"):
+        machine.succeed(
+            f"test -d {project}/.sbox/state/home/alice/.teststate"
+        )
+
+    with subtest("persist: multiple paths work"):
+        sbox_run(
+            "echo a > /home/alice/.state1/f1 && echo b > /home/alice/.state2/f2",
+            "--persist /home/alice/.state1 --persist /home/alice/.state2",
+        )
+        val1 = sbox_run("cat /home/alice/.state1/f1", "--persist /home/alice/.state1")
+        val2 = sbox_run("cat /home/alice/.state2/f2", "--persist /home/alice/.state2")
+        assert val1 == "a", f"Expected 'a' from first persist path, got: {val1!r}"
+        assert val2 == "b", f"Expected 'b' from second persist path, got: {val2!r}"
+
     with subtest("network host: sandbox shares host network"):
         val = sbox_run(
             "ip link show lo >/dev/null 2>&1 && echo has-lo || echo no-lo",

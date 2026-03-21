@@ -51,7 +51,8 @@ let
     ++ (lib.concatMap (p: [ "--expose-port" (toString p) ]) cfg.exposedTCPPorts)
     ++ (lib.optionals cfg.hostNetwork [ "--network" "host" ])
     ++ (lib.optionals (cfg.allowParent != "off") [ "--allow-parent" cfg.allowParent ])
-    ++ (lib.optionals cfg.allowAudio [ "--audio" ]);
+    ++ (lib.optionals cfg.allowAudio [ "--audio" ])
+    ++ (lib.concatMap (p: [ "--persist" p ]) cfg.persist);
 
   escapedSboxArgs = lib.concatMapStringsSep " " escapeShellArgWithExpansion sboxArgs;
 
@@ -155,6 +156,13 @@ in
       type = lib.types.bool;
       default = false;
       description = "Use host network instead of isolated network namespace.";
+    };
+
+    persist = lib.mkOption {
+      type = lib.types.listOf lib.types.str;
+      default = [];
+      description = "Paths to persist across sandbox sessions. Each path gets a per-project backing store in <project>/.sbox/state/.";
+      example = [ "$HOME/.claude" "$HOME/.npm" ];
     };
 
     allowAudio = lib.mkOption {

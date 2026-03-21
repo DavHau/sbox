@@ -307,6 +307,7 @@ let
     HOST_PORTS=()
     SANDBOX_PORTS=()
     BIND_ARGS=()
+    PERSIST_ARGS=()
     ARGS=()
     EXEC_CMD=()
     usage() {
@@ -331,6 +332,9 @@ Options:
   --bind-try SRC DEST     Like --bind, but skip silently if SRC does not exist
   --ro-bind SRC DEST      Bind-mount SRC to DEST (read-only) inside the sandbox
   --ro-bind-try SRC DEST  Like --ro-bind, but skip silently if SRC does not exist
+  --persist PATH          Persist PATH across sandbox sessions. Writes are
+                          stored in <project>/.sbox/state/ and bind-mounted
+                          over PATH inside the sandbox. Can be repeated.
   --audio                 Allow audio playback and capture (PipeWire passthrough)
   -h, --help              Show this help message
 
@@ -357,6 +361,10 @@ USAGE
             echo "Error: --network requires 'host' as argument" >&2
             exit 1
           fi
+          ;;
+        --persist)
+          PERSIST_ARGS+=("$2")
+          shift 2
           ;;
         --audio)
           USE_AUDIO=1
@@ -401,6 +409,18 @@ USAGE
           ;;
       esac
     done
+
+    # Resolve persist paths into bind mounts backed by .sbox/state/
+    if [ ''${#PERSIST_ARGS[@]} -gt 0 ]; then
+      PERSIST_PROJECT_DIR="''${ARGS[0]:-$(pwd)}"
+      PERSIST_PROJECT_DIR="$(realpath -s "$PERSIST_PROJECT_DIR")"
+      for p in "''${PERSIST_ARGS[@]}"; do
+        rel="''${p#/}"
+        backing="$PERSIST_PROJECT_DIR/.sbox/state/$rel"
+        [ -d "$backing" ] || mkdir -p "$backing"
+        BIND_ARGS+=(--bind "$backing" "$p")
+      done
+    fi
 
     # Build args for the inner script, passing through -- <cmd> if given
     INNER_ARGS=("''${ARGS[@]}")

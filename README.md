@@ -69,10 +69,16 @@ programs.direnv.sandbox = {
   enable = true;
 
   # Extra paths to mount read-write inside the sandbox
-  bind = [ "$HOME/.cache" "/data" ];
+  bind."$HOME/.cache" = {};
 
-  # Extra paths to mount read-only
-  bindReadOnly = [ "/opt/tools" ];
+  # Mount a GitHub-only SSH key into the sandbox (read-only)
+  bindReadOnly."$HOME/.ssh/id_ed25519_github".to = "$HOME/.ssh/id_ed25519";
+  bindReadOnly."$HOME/.ssh/id_ed25519_github.pub".to = "$HOME/.ssh/id_ed25519.pub";
+
+  # Persist paths across sandbox sessions. Each path gets a per-project
+  # backing store in <project>/.sbox/state/ and is bind-mounted read-write.
+  # Useful for tools that need writable state without breaking isolation.
+  persist = [ "$HOME/.claude" ];
 
   # Forward host TCP ports into the sandbox
   allowedTCPPorts = [ 5432 6379 ];
@@ -114,10 +120,12 @@ This command must be run **outside** the sandbox. Code inside a sandbox cannot d
 The `sbox` command is available on your `$PATH` when the module is enabled. It lets you manually launch sandboxed shells with the same isolation and configuration (bind mounts, port forwarding, network mode, etc.) that direnv-sandbox applies automatically:
 
 ```bash
-sbox                        # sandbox the current directory
-sbox ~/projects/myapp       # sandbox a specific directory
-sbox -- make build          # run a command inside the sandbox
-sbox -p 5432 -- psql        # additionally forward a host port
+sbox                                    # sandbox the current directory
+sbox ~/projects/myapp                   # sandbox a specific directory
+sbox -- make build                      # run a command inside the sandbox
+sbox -p 5432 -- psql                    # additionally forward a host port
+sbox --persist $HOME/.claude            # persist Claude Code state per-project
+sbox --persist $HOME/.npm -- npm i      # persist npm cache per-project
 ```
 
 Run `sbox --help` for all available options. Any options configured via the NixOS module (e.g. `bind`, `allowedTCPPorts`, `hostNetwork`) are baked into the wrapper, so `sbox` inherits your system configuration by default. Extra flags passed on the command line are appended on top.
