@@ -346,8 +346,8 @@ Options:
   --ro-bind SRC DEST      Bind-mount SRC to DEST (read-only) inside the sandbox
   --ro-bind-try SRC DEST  Like --ro-bind, but skip silently if SRC does not exist
   --persist PATH          Persist PATH across sandbox sessions. Writes are
-                          stored in <project>/.sbox/state/ and bind-mounted
-                          over PATH inside the sandbox. Can be repeated.
+                          stored in \$XDG_STATE_HOME (~/.local/state) keyed by
+                          project directory hash. Can be repeated.
   --audio                 Allow audio playback and capture (PipeWire passthrough)
   -h, --help              Show this help message
 
@@ -423,13 +423,17 @@ USAGE
       esac
     done
 
-    # Resolve persist paths into bind mounts backed by .sbox/state/
+    # Resolve persist paths into bind mounts backed by XDG state dir.
+    # Each project gets a unique subdirectory keyed by the sha256 hash
+    # of its absolute path.
     if [ ''${#PERSIST_ARGS[@]} -gt 0 ]; then
       PERSIST_PROJECT_DIR="''${ARGS[0]:-$(pwd)}"
       PERSIST_PROJECT_DIR="$(realpath -s "$PERSIST_PROJECT_DIR")"
+      PERSIST_STATE_DIR="''${XDG_STATE_HOME:-$HOME/.local/state}/sbox"
+      PROJECT_HASH="$(printf '%s\n' "$PERSIST_PROJECT_DIR" | sha256sum | cut -d' ' -f1)"
       for p in "''${PERSIST_ARGS[@]}"; do
         rel="''${p#/}"
-        backing="$PERSIST_PROJECT_DIR/.sbox/state/$rel"
+        backing="$PERSIST_STATE_DIR/$PROJECT_HASH/$rel"
         mkdir -p "$backing"
         BIND_ARGS+=(--bind "$backing" "$p")
       done

@@ -76,7 +76,7 @@ programs.direnv.sandbox = {
   bindReadOnly."$HOME/.ssh/id_ed25519_github.pub".to = "$HOME/.ssh/id_ed25519.pub";
 
   # Persist paths across sandbox sessions. Each path gets a per-project
-  # backing store in <project>/.sbox/state/ and is bind-mounted read-write.
+  # backing store in ${XDG_STATE_HOME:-~/.local/state}/sbox/ and is bind-mounted read-write.
   # Useful for tools that need writable state without breaking isolation.
   persist = [ "$HOME/.claude" ];
 

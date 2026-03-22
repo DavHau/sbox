@@ -145,7 +145,7 @@ in
       default = [];
       description = ''
         Paths to persist across sandbox sessions. Each path gets a
-        per-project backing store in <project>/.sbox/state/.
+        per-project backing store in ''${XDG_STATE_HOME:-~/.local/state}/sbox/.
 
         Persist mounts are applied before explicit bind/bindReadOnly
         mounts, so you can overlay read-only files from the host on

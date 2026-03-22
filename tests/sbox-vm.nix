@@ -161,9 +161,12 @@ pkgs.testers.runNixOSTest {
         assert val == "persist-ok", \
             f"Expected persisted data to survive across sessions, got: {val!r}"
 
-    with subtest("persist: backing dir is created in .sbox/state/"):
+    with subtest("persist: backing dir is created in XDG state dir"):
+        project_hash = machine.succeed(
+            f"printf '%s\\n' '{project}' | sha256sum | cut -d' ' -f1"
+        ).strip()
         machine.succeed(
-            f"test -d {project}/.sbox/state/home/alice/.teststate"
+            f"test -d /home/alice/.local/state/sbox/{project_hash}/home/alice/.teststate"
         )
 
     with subtest("persist: multiple paths work"):
