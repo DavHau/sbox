@@ -2,9 +2,11 @@
   description = "Bubblewrap sandboxing for direnv sessions";
 
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+  inputs.wrappers.url = "github:lassulus/wrappers";
+  inputs.wrappers.inputs.nixpkgs.follows = "nixpkgs";
 
   outputs =
-    { self, nixpkgs }:
+    { self, nixpkgs, wrappers }:
     let
       lib = nixpkgs.lib;
       forAllSystems =
@@ -35,7 +37,7 @@
       });
 
       nixosModules.default = self.nixosModules.direnv-sandbox;
-      nixosModules.direnv-sandbox = import ./module.nix { inherit self; };
+      nixosModules.direnv-sandbox = import ./module.nix { inherit self wrappers; };
 
       devShells = forAllSystems (pkgs: {
         default = pkgs.mkShell {

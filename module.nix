@@ -1,4 +1,4 @@
-{ self }:
+{ self, wrappers }:
 {
   lib,
   config,
@@ -9,16 +9,6 @@ let
   cfg = config.programs.direnv.sandbox;
   direnv-cfg = config.programs.direnv;
   pkg = cfg.package;
-  # Like lib.escapeShellArg but uses double quotes instead of single quotes
-  # when quoting is needed, so that shell variables like $HOME in bind paths
-  # (e.g. bind = [ "$HOME/.cache" ]) expand naturally at shell init time.
-  escapeShellArgWithExpansion = arg:
-    let string = toString arg;
-    in if builtins.match "[[:alnum:],._+:@%/-]+" string != null
-       then string
-       else ''"'' + builtins.replaceStrings [ ''"'' "\\" ] [ ''\"'' "\\\\" ] string + ''"'';
-  escapedCmd = lib.concatMapStringsSep " " escapeShellArgWithExpansion cfg.command;
-
   # Build the sbox package with module-configured overrides.
   sboxBase = (self.packages.${pkgs.system}.sbox).override {
     inherit (cfg) packages shellHook;
@@ -54,17 +44,19 @@ let
     ++ (lib.optionals cfg.allowAudio [ "--audio" ])
     ++ (lib.concatMap (p: [ "--persist" p ]) cfg.persist);
 
-  escapedSboxArgs = lib.concatMapStringsSep " " escapeShellArgWithExpansion sboxArgs;
-
   # Standalone wrapper: bakes in module-configured args for manual use.
-  sboxWrapped = pkgs.writeShellScriptBin "sbox" ''
-    exec ${sboxBase}/bin/sbox ${escapedSboxArgs} "$@"
-  '';
+  sboxWrapped = wrappers.lib.wrapPackage {
+    inherit pkgs;
+    package = sboxBase;
+    args = sboxArgs;
+  };
 
   # Direnv wrapper: same args, but includes direnv-specific bind mounts.
-  sboxDirenvWrapped = pkgs.writeShellScriptBin "sbox" ''
-    exec ${sboxDirenv}/bin/sbox ${escapedSboxArgs} "$@"
-  '';
+  sboxDirenvWrapped = wrappers.lib.wrapPackage {
+    inherit pkgs;
+    package = sboxDirenv;
+    args = sboxArgs;
+  };
 in
 {
   options.programs.direnv.sandbox = {
@@ -76,20 +68,10 @@ in
       description = "The direnv-sandbox package to use.";
     };
 
-    command = lib.mkOption {
-      type = lib.types.listOf lib.types.str;
-      default = [ "${sboxDirenvWrapped}/bin/sbox" ];
-      description = "The sandbox command and arguments. The shell to exec is appended after '--'.";
-      example = [
-        "bwrap"
-        "--ro-bind"
-        "/"
-        "/"
-        "--dev"
-        "/dev"
-        "--tmpfs"
-        "/tmp"
-      ];
+    sandboxCommand = lib.mkOption {
+      type = lib.types.package;
+      default = sboxDirenvWrapped;
+      description = "The sandbox wrapper package. Its is invoked with the shell to exec appended after '--'.";
     };
 
     bind = lib.mkOption {
@@ -236,13 +218,6 @@ in
     })
 
     (lib.mkIf (direnv-cfg.enable && cfg.enable) {
-      assertions = [
-        {
-          assertion = cfg.command != [ ];
-          message = "programs.direnv.sandbox.command must be set when sandbox is enabled.";
-        }
-      ];
-
       environment.systemPackages = [ pkg ];
 
       # Disable direnv's own shell integration — we replace it with sandbox-aware hooks.
@@ -257,13 +232,13 @@ in
       # Add sandbox-aware hook sourcing. These append normally to
       # interactiveShellInit without overriding other modules' content.
       programs.bash.interactiveShellInit = ''
-        DIRENV_SANDBOX_CMD=(${escapedCmd})
+        DIRENV_SANDBOX_CMD=("${lib.getExe cfg.sandboxCommand}")
         DIRENV_SANDBOX_DIRENV_BIN="${lib.getExe direnv-cfg.package}"
         source "${pkg}/share/direnv-sandbox/direnv-sandbox.bash"
       '';
 
       programs.zsh.interactiveShellInit = ''
-        DIRENV_SANDBOX_CMD=(${escapedCmd})
+        DIRENV_SANDBOX_CMD=("${lib.getExe cfg.sandboxCommand}")
         DIRENV_SANDBOX_DIRENV_BIN="${lib.getExe direnv-cfg.package}"
         source "${pkg}/share/direnv-sandbox/direnv-sandbox.zsh"
       '';
@@ -278,7 +253,7 @@ in
       programs.fish.interactiveShellInit = ''
         functions --erase __direnv_export_eval 2>/dev/null
         functions --erase __direnv_cd_hook 2>/dev/null
-        set -gx DIRENV_SANDBOX_CMD ${escapedCmd}
+        set -gx DIRENV_SANDBOX_CMD "${lib.getExe cfg.sandboxCommand}"
         set -gx DIRENV_SANDBOX_DIRENV_BIN "${lib.getExe direnv-cfg.package}"
         source "${pkg}/share/direnv-sandbox/direnv-sandbox.fish"
       '';
