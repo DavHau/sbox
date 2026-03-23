@@ -136,15 +136,16 @@ let
       if [ -n "''${WAYLAND_DISPLAY:-}" ]; then
         WAYLAND_ARGS+=(--ro-bind-try "$XDG_RUNTIME_DIR/$WAYLAND_DISPLAY" "$XDG_RUNTIME_DIR/$WAYLAND_DISPLAY")
       fi
-      # Audio: bind PipeWire and PulseAudio sockets.
-      if [ "''${__SANDBOX_USE_AUDIO:-0}" = 1 ]; then
-        WAYLAND_ARGS+=(--ro-bind-try "$XDG_RUNTIME_DIR/pipewire-0" "$XDG_RUNTIME_DIR/pipewire-0")
-        WAYLAND_ARGS+=(--ro-bind-try "$XDG_RUNTIME_DIR/pulse/native" "$XDG_RUNTIME_DIR/pulse/native")
-      fi
     fi
-    # ALSA device nodes
+
+    # Audio: bind PipeWire, PulseAudio sockets and ALSA device nodes.
+    AUDIO_ARGS=()
     if [ "''${__SANDBOX_USE_AUDIO:-0}" = 1 ]; then
-      WAYLAND_ARGS+=(--dev-bind-try /dev/snd /dev/snd)
+      if [ -n "''${XDG_RUNTIME_DIR:-}" ]; then
+        AUDIO_ARGS+=(--ro-bind-try "$XDG_RUNTIME_DIR/pipewire-0" "$XDG_RUNTIME_DIR/pipewire-0")
+        AUDIO_ARGS+=(--ro-bind-try "$XDG_RUNTIME_DIR/pulse/native" "$XDG_RUNTIME_DIR/pulse/native")
+      fi
+      AUDIO_ARGS+=(--dev-bind-try /dev/snd /dev/snd)
     fi
 
     # Mount all directories from the host PATH into the sandbox
@@ -264,6 +265,7 @@ let
       --ro-bind-try /run/opengl-driver /run/opengl-driver \
       --ro-bind-try /run/opengl-driver-32 /run/opengl-driver-32 \
       "''${WAYLAND_ARGS[@]}" \
+      "''${AUDIO_ARGS[@]}" \
       --dir /usr/bin \
       --dir /bin \
       --dir /etc/ssl \
