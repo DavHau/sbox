@@ -233,14 +233,6 @@ let
       *) WORK_DIR="$PROJECT_DIR" ;;
     esac
 
-    # Shell history sharing: bind-mount host history files into the sandbox.
-    HISTORY_ARGS=()
-    if [ "''${__SANDBOX_HISTORY_MODE:-host}" = "host" ]; then
-      HISTORY_ARGS+=(--bind-try "$HOME/.bash_history" "$HOME/.bash_history")
-      HISTORY_ARGS+=(--bind-try "$HOME/.zsh_history" "$HOME/.zsh_history")
-      HISTORY_ARGS+=(--bind-try "$HOME/.local/share/fish/fish_history" "$HOME/.local/share/fish/fish_history")
-    fi
-
     # Restore the original UID/GID inside the sandbox so the user
     # identity is preserved across the user-namespace boundary.
     ID_ARGS=()
@@ -304,7 +296,6 @@ let
       "''${PATH_BIND_ARGS[@]}" \
       "''${EDITOR_ARGS[@]}" \
       "''${EXTRA_BIND_ARGS[@]}" \
-      "''${HISTORY_ARGS[@]}" \
       ${bubblewrapArgs} \
       "''${PARENT_BIND_ARGS[@]}" \
       --bind "$PROJECT_DIR" "$PROJECT_DIR" \
@@ -453,14 +444,20 @@ USAGE
       BIND_ARGS+=(--bind "$backing" "$p")
     done
 
-    # When not sharing host history, persist shell history files per-project
-    # so commands typed in the sandbox survive across sessions.
-    if [ "$HISTORY_MODE" = "project" ]; then
-      HISTORY_FILES=(
-        "$HOME/.bash_history"
-        "$HOME/.zsh_history"
-        "$HOME/.local/share/fish/fish_history"
-      )
+    # Shell history: bind-mount history files into the sandbox.
+    # "host"    — share host files directly (read-write)
+    # "project" — per-project backing store under XDG state dir
+    # "off"     — no history mounts
+    HISTORY_FILES=(
+      "$HOME/.bash_history"
+      "$HOME/.zsh_history"
+      "$HOME/.local/share/fish/fish_history"
+    )
+    if [ "$HISTORY_MODE" = "host" ]; then
+      for hf in "''${HISTORY_FILES[@]}"; do
+        BIND_ARGS+=(--bind-try "$hf" "$hf")
+      done
+    elif [ "$HISTORY_MODE" = "project" ]; then
       for hf in "''${HISTORY_FILES[@]}"; do
         rel="''${hf#/}"
         backing="$PERSIST_STATE_DIR/$PROJECT_HASH/$rel"
@@ -486,7 +483,6 @@ USAGE
     export __SANDBOX_UID="$ORIG_UID"
     export __SANDBOX_GID="$ORIG_GID"
     export __SANDBOX_USE_AUDIO="$USE_AUDIO"
-    export __SANDBOX_HISTORY_MODE="$HISTORY_MODE"
 
     if [ "$USE_HOST_NET" = 1 ]; then
       exec ${util-linux}/bin/unshare --user --map-root-user \
