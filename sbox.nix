@@ -113,8 +113,6 @@ let
       esac
     done
 
-    # USER="$(whoami)"
-
     SHELL=$(resolve_cmd "$SHELL")
 
     EDITOR_ARGS=()
@@ -442,19 +440,27 @@ USAGE
       esac
     done
 
-    # Compute per-project state directory, used by --persist and history.
-    PERSIST_PROJECT_DIR="''${ARGS[0]:-$(pwd)}"
-    PERSIST_PROJECT_DIR="$(realpath -s "$PERSIST_PROJECT_DIR")"
-    PERSIST_STATE_DIR="''${XDG_STATE_HOME:-$HOME/.local/state}/sbox"
-    PROJECT_HASH="$(printf '%s\n' "$PERSIST_PROJECT_DIR" | sha256sum | cut -d' ' -f1)"
+    # Per-project state directory, computed lazily for --persist and --history project.
+    _project_state_dir() {
+      if [ -z "''${_PROJECT_STATE_DIR:-}" ]; then
+        local project_dir="''${ARGS[0]:-$(pwd)}"
+        project_dir="$(realpath -s "$project_dir")"
+        local hash
+        hash="$(printf '%s\n' "$project_dir" | sha256sum | cut -d' ' -f1)"
+        _PROJECT_STATE_DIR="''${XDG_STATE_HOME:-$HOME/.local/state}/sbox/$hash"
+      fi
+      printf '%s' "$_PROJECT_STATE_DIR"
+    }
 
     # Resolve persist paths into bind mounts backed by XDG state dir.
-    for p in "''${PERSIST_ARGS[@]}"; do
-      rel="''${p#/}"
-      backing="$PERSIST_STATE_DIR/$PROJECT_HASH/$rel"
-      [ -d "$backing" ] || mkdir -p "$backing"
-      BIND_ARGS+=(--bind "$backing" "$p")
-    done
+    if [ ''${#PERSIST_ARGS[@]} -gt 0 ]; then
+      for p in "''${PERSIST_ARGS[@]}"; do
+        rel="''${p#/}"
+        backing="$(_project_state_dir)/$rel"
+        [ -d "$backing" ] || mkdir -p "$backing"
+        BIND_ARGS+=(--bind "$backing" "$p")
+      done
+    fi
 
     # Shell history: bind-mount history files into the sandbox.
     # "host"    — share host files directly (read-write)
@@ -472,7 +478,7 @@ USAGE
     elif [ "$HISTORY_MODE" = "project" ]; then
       for hf in "''${HISTORY_FILES[@]}"; do
         rel="''${hf#/}"
-        backing="$PERSIST_STATE_DIR/$PROJECT_HASH/$rel"
+        backing="$(_project_state_dir)/$rel"
         backing_dir="$(dirname "$backing")"
         [ -d "$backing_dir" ] || mkdir -p "$backing_dir"
         [ -f "$backing" ] || touch "$backing"
