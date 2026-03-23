@@ -480,15 +480,17 @@ USAGE
     ORIG_UID=$(id -u)
     ORIG_GID=$(id -g)
 
+    # Common env vars passed to the inner script in both network modes.
+    export __SANDBOX_BIND_ARGS="''${BIND_ARGS[*]}"
+    export __SANDBOX_ALLOW_PARENT="$ALLOW_PARENT"
+    export __SANDBOX_UID="$ORIG_UID"
+    export __SANDBOX_GID="$ORIG_GID"
+    export __SANDBOX_USE_AUDIO="$USE_AUDIO"
+    export __SANDBOX_HISTORY_MODE="$HISTORY_MODE"
+
     if [ "$USE_HOST_NET" = 1 ]; then
-      __SANDBOX_BIND_ARGS="''${BIND_ARGS[*]}" \
-      __SANDBOX_ALLOW_PARENT="$ALLOW_PARENT" \
-      __SANDBOX_UID="$ORIG_UID" \
-      __SANDBOX_GID="$ORIG_GID" \
-      __SANDBOX_USE_AUDIO="$USE_AUDIO" \
-      __SANDBOX_HISTORY_MODE="$HISTORY_MODE" \
-        exec ${util-linux}/bin/unshare --user --map-root-user \
-          -- ${innerScript} "''${INNER_ARGS[@]}"
+      exec ${util-linux}/bin/unshare --user --map-root-user \
+        -- ${innerScript} "''${INNER_ARGS[@]}"
     fi
 
     WORK=$(mktemp -d)
@@ -552,19 +554,13 @@ USAGE
     # Foreground so the TTY is preserved for the interactive shell.
     # unshare execs the inner script, so the process keeps the same PID
     # throughout: unshare → inner script → bwrap.
-    __SANDBOX_PIDFILE="$PIDFILE" \
-    __SANDBOX_READY="$READY" \
-    __SANDBOX_RESOLV="$RESOLV" \
-    __SANDBOX_FORWARD_PORTS="''${HOST_PORTS[*]}" \
-    __SANDBOX_WORK="$WORK" \
-    __SANDBOX_BIND_ARGS="''${BIND_ARGS[*]}" \
-    __SANDBOX_ALLOW_PARENT="$ALLOW_PARENT" \
-    __SANDBOX_UID="$ORIG_UID" \
-    __SANDBOX_GID="$ORIG_GID" \
-    __SANDBOX_USE_AUDIO="$USE_AUDIO" \
-    __SANDBOX_HISTORY_MODE="$HISTORY_MODE" \
-      ${util-linux}/bin/unshare --user --map-root-user --net \
-        -- ${innerScript} "''${INNER_ARGS[@]}"
+    export __SANDBOX_PIDFILE="$PIDFILE"
+    export __SANDBOX_READY="$READY"
+    export __SANDBOX_RESOLV="$RESOLV"
+    export __SANDBOX_FORWARD_PORTS="''${HOST_PORTS[*]}"
+    export __SANDBOX_WORK="$WORK"
+    ${util-linux}/bin/unshare --user --map-root-user --net \
+      -- ${innerScript} "''${INNER_ARGS[@]}"
   '';
 
 in
