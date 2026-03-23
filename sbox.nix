@@ -300,6 +300,7 @@ let
       --ro-bind "$SHELL" "$SHELL" \
       --ro-bind-try $HOME/.gitconfig $HOME/.gitconfig \
       --ro-bind-try $HOME/.config/git $HOME/.config/git \
+      --ro-bind-try $HOME/.config/jj $HOME/.config/jj \
       --ro-bind-try /etc/gitconfig /etc/gitconfig \
       "''${PATH_BIND_ARGS[@]}" \
       "''${EDITOR_ARGS[@]}" \
