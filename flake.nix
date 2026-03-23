@@ -45,6 +45,7 @@
           vm-zsh = import ./tests/vm.nix { inherit lib pkgs self; shell = "zsh"; };
           vm-fish = import ./tests/vm.nix { inherit lib pkgs self; shell = "fish"; };
           vm-sbox = import ./tests/sbox-vm.nix { inherit lib pkgs self; };
+          vm-audio = import ./tests/audio-vm.nix { inherit lib pkgs self; };
         });
     };
 }

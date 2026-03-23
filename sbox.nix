@@ -285,6 +285,7 @@ let
       --ro-bind-try /etc/zsh /etc/zsh \
       --ro-bind-try /etc/fish /etc/fish \
       --ro-bind-try /etc/fonts /etc/fonts \
+      --ro-bind-try /etc/alsa /etc/alsa \
       --ro-bind /etc/nix /etc/nix \
       --ro-bind-try /etc/static /etc/static \
       --ro-bind "$RESOLV" /etc/resolv.conf \
