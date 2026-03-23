@@ -394,7 +394,10 @@ USAGE
           shift
           ;;
         --history)
-          HISTORY_MODE="$2"
+          case "''${2:-}" in
+            host|project|off) HISTORY_MODE="$2" ;;
+            *) echo "Error: --history requires 'host', 'project', or 'off'" >&2; exit 1 ;;
+          esac
           shift 2
           ;;
         --allow-parent)
