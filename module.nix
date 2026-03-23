@@ -42,6 +42,7 @@ let
     ++ (lib.optionals cfg.hostNetwork [ "--network" "host" ])
     ++ (lib.optionals (cfg.allowParent != "off") [ "--allow-parent" cfg.allowParent ])
     ++ (lib.optionals cfg.allowAudio [ "--audio" ])
+    ++ (lib.optionals (!cfg.shareKnownHosts) [ "--no-known-hosts" ])
     ++ (lib.optionals (cfg.shareHistory != "host") [ "--history" cfg.shareHistory ])
     ++ (lib.concatMap (p: [ "--persist" p ]) cfg.persist);
 
@@ -175,6 +176,12 @@ in
         "project" — persist history per-project under $XDG_STATE_HOME/sbox/.
         "off" — no history persistence across sessions.
       '';
+    };
+
+    shareKnownHosts = lib.mkOption {
+      type = lib.types.bool;
+      default = true;
+      description = "Share ~/.ssh/known_hosts (read-only) with the sandbox so SSH host verification works.";
     };
 
     allowAudio = lib.mkOption {

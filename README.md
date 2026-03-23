@@ -94,6 +94,9 @@ programs.direnv.sandbox = {
   # Shell history mode: "host" (shared, default), "project" (per-project), "off"
   shareHistory = "host";
 
+  # Share ~/.ssh/known_hosts read-only (default: true)
+  shareKnownHosts = true;
+
   # Use host network instead of isolated slirp4netns networking
   hostNetwork = false;
 };
@@ -155,6 +158,22 @@ With `sbox` directly:
 sbox                       # shared host history (default)
 sbox --history project     # per-project history
 sbox --history off         # no persistence
+```
+
+### SSH known_hosts
+
+By default `shareKnownHosts = true`: the host's `~/.ssh/known_hosts` is bind-mounted read-only into the sandbox so that SSH host verification works out of the box (required for `git push`, `ssh`, etc.). This only exposes the list of hosts you have connected to — no private keys or credentials are shared.
+
+If your threat model treats the list of known hosts as sensitive, disable it:
+
+```nix
+programs.direnv.sandbox.shareKnownHosts = false;
+```
+
+With `sbox` directly:
+
+```bash
+sbox --no-known-hosts    # don't share known_hosts
 ```
 
 ### Other considerations

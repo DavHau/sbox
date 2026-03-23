@@ -146,6 +146,12 @@ let
       AUDIO_ARGS+=(--dev-bind-try /dev/snd /dev/snd)
     fi
 
+    # SSH known_hosts: share host's known_hosts read-only so git/ssh work.
+    KNOWN_HOSTS_ARGS=()
+    if [ "''${__SANDBOX_SHARE_KNOWN_HOSTS:-1}" = 1 ]; then
+      KNOWN_HOSTS_ARGS+=(--ro-bind-try "$HOME/.ssh/known_hosts" "$HOME/.ssh/known_hosts")
+    fi
+
     # Mount all directories from the host PATH into the sandbox
     PATH_BIND_ARGS=()
     SANDBOX_PATH=""
@@ -302,6 +308,7 @@ let
       --ro-bind-try $HOME/.config/git $HOME/.config/git \
       --ro-bind-try $HOME/.config/jj $HOME/.config/jj \
       --ro-bind-try /etc/gitconfig /etc/gitconfig \
+      "''${KNOWN_HOSTS_ARGS[@]}" \
       "''${PATH_BIND_ARGS[@]}" \
       "''${EDITOR_ARGS[@]}" \
       "''${EXTRA_BIND_ARGS[@]}" \
@@ -325,6 +332,7 @@ let
 
     USE_HOST_NET=0
     USE_AUDIO=0
+    SHARE_KNOWN_HOSTS=1
     HISTORY_MODE="host"
     ALLOW_PARENT="off"
     HOST_PORTS=()
@@ -361,6 +369,7 @@ Options:
   --history MODE          Shell history mode: "host" (shared, default), "project"
                           (per-project), or "off" (no persistence)
   --audio                 Allow audio playback and capture (PipeWire passthrough)
+  --no-known-hosts        Don't share ~/.ssh/known_hosts with the sandbox
   -h, --help              Show this help message
 
 Examples:
@@ -393,6 +402,10 @@ USAGE
           ;;
         --audio)
           USE_AUDIO=1
+          shift
+          ;;
+        --no-known-hosts)
+          SHARE_KNOWN_HOSTS=0
           shift
           ;;
         --history)
@@ -508,6 +521,7 @@ USAGE
     export __SANDBOX_UID="$ORIG_UID"
     export __SANDBOX_GID="$ORIG_GID"
     export __SANDBOX_USE_AUDIO="$USE_AUDIO"
+    export __SANDBOX_SHARE_KNOWN_HOSTS="$SHARE_KNOWN_HOSTS"
 
     if [ "$USE_HOST_NET" = 1 ]; then
       exec ${util-linux}/bin/unshare --user --map-root-user \
