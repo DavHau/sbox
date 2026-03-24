@@ -63,15 +63,15 @@ if set -q _DIRENV_SANDBOX_ACTIVE
     # Uses --on-variable PWD to catch cd, pushd, popd, prevd, nextd, etc.
     # exit 0 works from --on-variable handlers in fish 4.x.
     function __direnv_sandbox_exit_check --on-variable PWD
-        switch $PWD
-            case "$_DIRENV_SANDBOX_ROOT" "$_DIRENV_SANDBOX_ROOT/"*
-                # Still inside the project tree
-            case '*'
-                if set -q _DIRENV_SANDBOX_EXIT_DIR_FILE
-                    echo -n $PWD > $_DIRENV_SANDBOX_EXIT_DIR_FILE 2>/dev/null; or true
-                end
-                exit 0
+        if string match -q -- "$_DIRENV_SANDBOX_ROOT" $PWD
+                ; or string match -q -- "$_DIRENV_SANDBOX_ROOT/*" $PWD
+            # Still inside the project tree
+            return
         end
+        if set -q _DIRENV_SANDBOX_EXIT_DIR_FILE
+            echo -n $PWD > $_DIRENV_SANDBOX_EXIT_DIR_FILE 2>/dev/null; or true
+        end
+        exit 0
     end
 
 # --- OUTER shell mode: sandbox entry ---

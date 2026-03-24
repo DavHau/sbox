@@ -44,6 +44,7 @@
                 touch $out
               '';
           build = nilla.packages.direnv-sandbox.result.${system};
+          fish-exit-glob = import ./tests/fish-exit-glob.nix { inherit pkgs; };
           vm-bash = import ./tests/vm.nix { inherit lib pkgs self; shell = "bash"; };
           vm-zsh = import ./tests/vm.nix { inherit lib pkgs self; shell = "zsh"; };
           vm-fish = import ./tests/vm.nix { inherit lib pkgs self; shell = "fish"; };
