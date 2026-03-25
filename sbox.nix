@@ -146,6 +146,14 @@ let
       AUDIO_ARGS+=(--dev-bind-try /dev/snd /dev/snd)
     fi
 
+    # jj (Jujutsu) config: mount global config read-only but provide a
+    # writable tmpfs for per-repo state so jj can function without leaking
+    # or tampering with host repo configs.
+    JJ_ARGS=()
+    if [ -d "$HOME/.config/jj" ]; then
+      JJ_ARGS+=(--tmpfs "$HOME/.config/jj/repos")
+    fi
+
     # SSH known_hosts: share host's known_hosts read-only so git/ssh work.
     KNOWN_HOSTS_ARGS=()
     if [ "''${__SANDBOX_SHARE_KNOWN_HOSTS:-1}" = 1 ]; then
@@ -307,6 +315,7 @@ let
       --ro-bind-try $HOME/.gitconfig $HOME/.gitconfig \
       --ro-bind-try $HOME/.config/git $HOME/.config/git \
       --ro-bind-try $HOME/.config/jj $HOME/.config/jj \
+      "''${JJ_ARGS[@]}" \
       --ro-bind-try /etc/gitconfig /etc/gitconfig \
       "''${KNOWN_HOSTS_ARGS[@]}" \
       "''${PATH_BIND_ARGS[@]}" \
