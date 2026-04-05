@@ -1,20 +1,8 @@
-# Shared option declarations for programs.direnv.sandbox.
-# Imported by both the NixOS module (module.nix) and the Home Manager module (hm-module.nix).
-{ lib, pkgs, sboxDirenvWrapped }:
+# Option declarations for programs.sbox.
+# This module can be imported independently to configure the sbox sandbox wrapper.
+{ lib, pkgs }:
 {
-  enable = lib.mkEnableOption "bubblewrap sandboxing for direnv sessions";
-
-  package = lib.mkOption {
-    type = lib.types.package;
-    default = pkgs.callPackage ./direnv-sandbox.nix {};
-    description = "The direnv-sandbox package to use.";
-  };
-
-  sandboxCommand = lib.mkOption {
-    type = lib.types.package;
-    default = sboxDirenvWrapped;
-    description = "The sandbox wrapper package. Its is invoked with the shell to exec appended after '--'.";
-  };
+  enable = lib.mkEnableOption "the sbox bubblewrap sandbox wrapper";
 
   bind = lib.mkOption {
     type = lib.types.attrsOf (lib.types.submodule ({ name, ... }: {
@@ -163,16 +151,6 @@
         python -m venv .venv --system-site-packages
       fi
       source .venv/bin/activate
-    '';
-  };
-
-  sbox.enable = lib.mkOption {
-    type = lib.types.bool;
-    default = true;
-    description = ''
-      Add the sbox command to the PATH. The wrapper inherits all
-      sandbox options configured via this module (bind mounts, ports, etc.).
-      Set to false to omit sbox from the PATH.
     '';
   };
 }

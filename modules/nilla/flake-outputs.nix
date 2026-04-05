@@ -19,7 +19,7 @@ in
     default.value = {
       packages = forAllSystems (system:
         nixpkgsLib.mapAttrs (_: pkg: pkg.result.${system}) config.packages
-        // { default = config.packages.direnv-sandbox.result.${system}; });
+        // { default = config.packages.sbox.result.${system}; });
 
       nixosModules = config.modules.nixos or {};
       homeManagerModules = config.modules.homeManager or {};

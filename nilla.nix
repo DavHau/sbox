@@ -10,8 +10,10 @@ nilla.create [
     let
       inherit (config.lib) systems;
       wrappers = config.inputs.wrappers.result;
-      nixosModule = import ./module.nix { inherit wrappers; };
-      homeManagerModule = import ./hm-module.nix { inherit wrappers; };
+      sboxModule = import ./sbox-module.nix { inherit wrappers; };
+      sboxHmModule = import ./sbox-hm-module.nix { inherit wrappers; };
+      nixosModule = import ./direnv-sandbox/module.nix { inherit wrappers sboxModule; };
+      homeManagerModule = import ./direnv-sandbox/hm-module.nix { inherit wrappers; sboxHmModule = sboxHmModule; };
       home-manager-src = config.inputs.home-manager.result;
     in
     {
@@ -57,7 +59,7 @@ nilla.create [
 
           direnv-sandbox = {
             inherit systems;
-            package = import ./direnv-sandbox.nix;
+            package = import ./direnv-sandbox/direnv-sandbox.nix;
           };
         };
 
@@ -85,11 +87,13 @@ nilla.create [
 
         modules.nixos = {
           default = nixosModule;
+          sbox = sboxModule;
           direnv-sandbox = nixosModule;
         };
 
         modules.homeManager = {
           default = homeManagerModule;
+          sbox = sboxHmModule;
           direnv-sandbox = homeManagerModule;
         };
 
@@ -101,13 +105,20 @@ nilla.create [
               runCommandLocal "shellcheck"
                 { nativeBuildInputs = [ shellcheck ]; }
                 ''
-                  cd ${./.}
+                  cd ${./direnv-sandbox}
                   shellcheck direnv-sandbox.bash
                   touch $out
                 '';
           };
 
-          build = {
+          build-sbox = {
+            inherit systems;
+            check =
+              { system, ... }:
+              config.packages.sbox.result.${system};
+          };
+
+          build-direnv-sandbox = {
             inherit systems;
             check =
               { system, ... }:
@@ -116,37 +127,37 @@ nilla.create [
 
           fish-exit-glob = {
             inherit systems;
-            check = import ./tests/fish-exit-glob.nix;
+            check = import ./direnv-sandbox/tests/fish-exit-glob.nix;
           };
 
           vm-bash = {
             inherit systems;
-            check = import ./tests/vm.nix { inherit nixosModule; shell = "bash"; };
+            check = import ./direnv-sandbox/tests/vm.nix { inherit nixosModule; shell = "bash"; };
           };
 
           vm-zsh = {
             inherit systems;
-            check = import ./tests/vm.nix { inherit nixosModule; shell = "zsh"; };
+            check = import ./direnv-sandbox/tests/vm.nix { inherit nixosModule; shell = "zsh"; };
           };
 
           vm-fish = {
             inherit systems;
-            check = import ./tests/vm.nix { inherit nixosModule; shell = "fish"; };
+            check = import ./direnv-sandbox/tests/vm.nix { inherit nixosModule; shell = "fish"; };
           };
 
           vm-hm-bash = {
             inherit systems;
-            check = import ./tests/hm-vm.nix { inherit homeManagerModule home-manager-src; shell = "bash"; };
+            check = import ./direnv-sandbox/tests/hm-vm.nix { inherit homeManagerModule home-manager-src; shell = "bash"; };
           };
 
           vm-hm-zsh = {
             inherit systems;
-            check = import ./tests/hm-vm.nix { inherit homeManagerModule home-manager-src; shell = "zsh"; };
+            check = import ./direnv-sandbox/tests/hm-vm.nix { inherit homeManagerModule home-manager-src; shell = "zsh"; };
           };
 
           vm-hm-fish = {
             inherit systems;
-            check = import ./tests/hm-vm.nix { inherit homeManagerModule home-manager-src; shell = "fish"; };
+            check = import ./direnv-sandbox/tests/hm-vm.nix { inherit homeManagerModule home-manager-src; shell = "fish"; };
           };
 
           vm-sbox = {

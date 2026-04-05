@@ -1,6 +1,6 @@
 # Flake compatibility wrapper. The actual project entry point is nilla.nix.
 {
-  description = "Bubblewrap sandboxing for direnv sessions";
+  description = "sbox — bubblewrap sandbox for development environments, with direnv integration";
 
   # All inputs are managed by nixtamal via nilla.nix — no flake inputs needed.
   inputs = { };

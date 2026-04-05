@@ -1,56 +1,67 @@
-# direnv-sandbox
+# sbox
 
-![direnv-sandbox](https://gist.githubusercontent.com/DavHau/87d0c3b66bd44b852e5f85bb555202e8/raw/direnv-sandbox.jpg)
+**Like sudo, but in reverse.**
+Sandboxing you won't notice — until you need it.
 
-Automatic [bubblewrap](https://github.com/containers/bubblewrap) sandboxing for [direnv](https://direnv.net/) environments on NixOS.
+---
 
-## The problem
+Type `sbox`, and your shell is sandboxed. The project stays writable, the rest of your system disappears — but it still feels like home, because sbox brings along everything that makes your shell yours:
 
-direnv is powerful but inherently risky. Running `direnv allow` on a project grants its `.envrc` full access to your user account — it can read your SSH keys, browser cookies, credentials, or anything else your user can touch. A malicious or compromised `.envrc` runs with the same privileges as you. This also means that any Nix devShell's `shellHook` — which direnv evaluates via `use flake` or `use nix` — executes with your full user privileges.
+- **Your shell** — bash, zsh, or fish, with your rc files and prompt
+- **Your tools** — every program on your `$PATH`, mounted read-only
+- **Your history** — shell history shared from the host (or per-project, your choice)
+- **Your git config** — global gitconfig and jj config, ready to commit
+- **Your SSH known hosts** — so SSH host verification works out of the box
+- **Your editor** — `$EDITOR` resolved and available
+- **Your GPU** — NVIDIA and DRI devices passed through
+- **Networking** — `curl`, `npm install`, `nix build` — it all just works
 
-**direnv-sandbox** fixes this by running every direnv environment inside an isolated [bubblewrap](https://github.com/containers/bubblewrap) container. The sandbox gets its own PID, IPC, UTS, and cgroup namespaces. Only the project directory is mounted read-write; the rest of the filesystem is either read-only or not visible at all. Network access goes through [slirp4netns](https://github.com/rootless-containers/slirp4netns) user-mode networking, so projects can still fetch dependencies and talk to APIs without having raw access to your host network stack.
+And when you need to lock things down or open them up, everything is configurable: bind mounts, port forwarding, network modes, audio passthrough, persistent state, and more.
 
-The result: `direnv allow` no longer means "I trust this project with my entire home directory." It means "I trust this project with its own directory."
+Under the hood, sbox uses [bubblewrap](https://github.com/containers/bubblewrap) for isolation and [slirp4netns](https://github.com/rootless-containers/slirp4netns) for user-mode networking — no root, no daemon, no Docker.
 
-## How it works
+For automatic sandboxing of [direnv](https://direnv.net/) environments, see the [direnv-sandbox](./direnv-sandbox/) integration.
 
-When you `cd` into a project with an allowed `.envrc`, the shell hook detects it and transparently launches a sandboxed subshell. Inside, direnv evaluates the `.envrc` as usual — `nix develop`, `use flake`, custom scripts, whatever — but the damage any code can do is contained to the project directory.
+## Try it out
 
-## Features
+No install needed:
 
-- Transparent entry/exit — `cd` in, `cd` out
-- Works with **bash**, **zsh**, and **fish**
-- Per-directory opt-out — `direnv-sandbox off` to disable sandboxing for trusted projects
-- Isolated PID, IPC, UTS, cgroup, and network namespaces
-- User-mode networking via slirp4netns (no root required)
-- Optional fully blocked network mode (loopback only, no internet/LAN)
-- Optional access to host services via TCP port forwarding
-- Read-write bind mounts for paths the project needs
-- GPU passthrough (NVIDIA + DRI devices)
-- `$PATH` entries from the host are mounted read-only
-- NixOS and Home Manager modules with declarative configuration
-- Full NixOS VM integration tests for all three shells
+```bash
+nix shell github:DavHau/sbox#sbox
+```
+
+Then:
+
+```bash
+sbox           # sandbox the current directory
+sbox --help    # see all options
+```
 
 ## Installation
 
-Add direnv-sandbox as a flake input and enable the NixOS module:
+### NixOS Module
+
+Add sbox as a flake input and enable the NixOS module:
 
 ```nix
 # flake.nix
 {
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-    direnv-sandbox.url = "github:DavHau/direnv-sandbox";
+    sbox.url = "github:DavHau/sbox";
   };
 
-  outputs = { nixpkgs, direnv-sandbox, ... }: {
+  outputs = { nixpkgs, sbox, ... }: {
     nixosConfigurations.myhost = nixpkgs.lib.nixosSystem {
       modules = [
-        direnv-sandbox.nixosModules.direnv-sandbox
+        sbox.nixosModules.sbox
         {
-          programs.direnv = {
+          programs.sbox = {
             enable = true;
-            sandbox.enable = true;
+            # optional configuration:
+            bind."$HOME/.cache" = {};
+            allowedTCPPorts = [ 5432 ];
+            network = "isolated";
           };
         }
       ];
@@ -59,33 +70,27 @@ Add direnv-sandbox as a flake input and enable the NixOS module:
 }
 ```
 
-That's it. The module replaces direnv's shell hooks with sandbox-aware versions.
-
 ### Home Manager
-
-direnv-sandbox also works as a [Home Manager](https://github.com/nix-community/home-manager) module, for standalone Home Manager setups or when you prefer per-user configuration:
 
 ```nix
 # home.nix
 { inputs, ... }:
 {
-  imports = [ inputs.direnv-sandbox.homeManagerModules.direnv-sandbox ];
+  imports = [ inputs.sbox.homeManagerModules.sbox ];
 
-  programs.direnv = {
+  programs.sbox = {
     enable = true;
-    sandbox.enable = true;
+    bind."$HOME/.cache" = {};
   };
 }
 ```
 
-The configuration options are identical to the NixOS module — see below.
-
 ## Configuration
 
-All options live under `programs.direnv.sandbox`:
+All options live under `programs.sbox`:
 
 ```nix
-programs.direnv.sandbox = {
+programs.sbox = {
   enable = true;
 
   # Extra paths to mount read-write inside the sandbox
@@ -95,9 +100,7 @@ programs.direnv.sandbox = {
   bindReadOnly."$HOME/.ssh/id_ed25519_github".to = "$HOME/.ssh/id_ed25519";
   bindReadOnly."$HOME/.ssh/id_ed25519_github.pub".to = "$HOME/.ssh/id_ed25519.pub";
 
-  # Persist paths across sandbox sessions. Each path gets a per-project
-  # backing store in ${XDG_STATE_HOME:-~/.local/state}/sbox/ and is bind-mounted read-write.
-  # Useful for tools that need writable state without breaking isolation.
+  # Persist paths across sandbox sessions
   persist = [ "$HOME/.claude" ];
 
   # Forward host TCP ports into the sandbox
@@ -107,9 +110,7 @@ programs.direnv.sandbox = {
   exposedTCPPorts = [ 3000 8000 ];
 
   # Mount the parent directory of the project inside the sandbox
-  # "off" (default) = not mounted, "read" = read-only, "write" = read-write
-  # The project directory itself is always mounted read-write regardless.
-  allowParent = "off";
+  allowParent = "off";  # "off" (default), "read", or "write"
 
   # Shell history mode: "host" (shared, default), "project" (per-project), "off"
   shareHistory = "host";
@@ -117,125 +118,66 @@ programs.direnv.sandbox = {
   # Share ~/.ssh/known_hosts read-only (default: true)
   shareKnownHosts = true;
 
-  # Network mode: "isolated" (default, user-mode networking), "blocked"
-  # (loopback only, no internet), or "host" (no isolation)
+  # Network mode: "isolated" (default), "blocked", or "host"
   network = "isolated";
+
+  # Allow audio passthrough (PipeWire)
+  allowAudio = false;
+
+  # Extra packages on PATH inside the sandbox
+  packages = [];
+
+  # Environment variables inside the sandbox
+  environment = {};
+
+  # Shell commands to run when entering the sandbox
+  shellHook = "";
 };
 ```
 
-For advanced use cases, you can override the `command` option directly:
-
-```nix
-programs.direnv.sandbox.command = [ "/path/to/my-wrapper" "--custom-flag" ];
-```
-
-The shell to exec is appended after `--` automatically.
-
-## Disabling the sandbox for specific projects
-
-```bash
-direnv-sandbox off ~/my-trusted-project   # disable
-direnv-sandbox on  ~/my-trusted-project   # re-enable
-```
-
-The path is optional — without it, the command searches upward from `$PWD`.
-
-This command must be run **outside** the sandbox. Code inside a sandbox cannot disable its own sandboxing (the disabled state is stored read-only inside the sandbox).
-
-## Manual sandbox usage
-
-The `sbox` command is available on your `$PATH` when the module is enabled. It lets you manually launch sandboxed shells with the same isolation and configuration (bind mounts, port forwarding, network mode, etc.) that direnv-sandbox applies automatically:
-
-```bash
-sbox                                    # sandbox the current directory
-sbox make build                         # run a command inside the sandbox
-sbox --allow-port 5432 psql             # forward a host port into the sandbox
-sbox --expose-port 8080                 # expose a sandbox port to the host
-sbox --network blocked                  # block all internet access
-sbox --network blocked --allow-port 5432  # blocked + forward a host port
-sbox --persist $HOME/.claude            # persist Claude Code state per-project
-sbox --persist $HOME/.npm npm i         # persist npm cache per-project
-sbox --history project                 # per-project isolated history
-```
-
-Run `sbox --help` for all available options. Any options configured via the NixOS module (e.g. `bind`, `allowedTCPPorts`, `network`) are baked into the wrapper, so `sbox` inherits your system configuration by default. Extra flags passed on the command line are appended on top.
+Any options configured via the NixOS/HM module are baked into the `sbox` wrapper, so the command inherits your system configuration by default. Extra flags passed on the command line are appended on top.
 
 ## Hardening
 
-Some defaults prioritise convenience over maximum isolation. Depending on your threat model you may want to tighten things up.
-
 ### Shell history
 
-By default `shareHistory = "host"`: the host's bash, zsh, and fish history files are bind-mounted read-write into every sandbox. This is convenient (arrow-up works across projects) but means a malicious `.envrc` could read commands you typed elsewhere, potentially leaking secrets like inline passwords or tokens.
-
-Set `shareHistory = "project"` to give each project its own history that persists across sessions but never touches the host file, or `"off"` to disable history persistence entirely:
+By default `shareHistory = "host"`: the host's bash, zsh, and fish history files are bind-mounted read-write into every sandbox. Set `shareHistory = "project"` for per-project history, or `"off"` to disable:
 
 ```nix
-programs.direnv.sandbox.shareHistory = "project";  # per-project history
-programs.direnv.sandbox.shareHistory = "off";       # no persistence
-```
-
-With `sbox` directly:
-
-```bash
-sbox                       # shared host history (default)
-sbox --history project     # per-project history
-sbox --history off         # no persistence
+programs.sbox.shareHistory = "project";
 ```
 
 ### SSH known_hosts
 
-By default `shareKnownHosts = true`: the host's `~/.ssh/known_hosts` is bind-mounted read-only into the sandbox so that SSH host verification works out of the box (required for `git push`, `ssh`, etc.). This only exposes the list of hosts you have connected to — no private keys or credentials are shared.
-
-If your threat model treats the list of known hosts as sensitive, disable it:
+By default `shareKnownHosts = true`: the host's `~/.ssh/known_hosts` is shared read-only. Disable with:
 
 ```nix
-programs.direnv.sandbox.shareKnownHosts = false;
-```
-
-With `sbox` directly:
-
-```bash
-sbox --no-known-hosts    # don't share known_hosts
+programs.sbox.shareKnownHosts = false;
 ```
 
 ### Network mode
 
-By default `network = "isolated"`: the sandbox has full internet access through user-mode networking (slirp4netns). This lets projects fetch dependencies, call APIs, etc.
-
-Set `network = "blocked"` to cut off all internet and LAN access. The sandbox gets only a loopback interface — processes can talk to each other on `localhost` but cannot reach anything outside. Port forwarding via `allowedTCPPorts` / `exposedTCPPorts` still works, so you can grant access to specific host services (e.g. a local database) without opening the network:
+- `"isolated"` (default) — full internet via slirp4netns
+- `"blocked"` — loopback only, port forwarding still works
+- `"host"` — no network isolation
 
 ```nix
-programs.direnv.sandbox = {
+programs.sbox = {
   network = "blocked";
-  allowedTCPPorts = [ 5432 ];  # only PostgreSQL, nothing else
+  allowedTCPPorts = [ 5432 ];  # only PostgreSQL
 };
 ```
 
-With `sbox` directly:
-
-```bash
-sbox --network blocked                  # loopback only
-sbox --network blocked --allow-port 5432  # loopback + host PostgreSQL
-sbox --network blocked --expose-port 8080  # loopback + expose sandbox port
-sbox --network host                     # no network isolation at all
-```
-
-### Other considerations
-
-- **Bind mounts** — every path added via `bind` or `bindReadOnly` is accessible to sandboxed code. Only expose what the project actually needs.
-- **Host network** — `network = "host"` removes network isolation entirely. Prefer the default isolated networking with explicit `allowedTCPPorts` / `exposedTCPPorts` when possible, or `"blocked"` for maximum isolation.
-- **Persist** — persisted paths are writable across sessions. A compromised project could tamper with its own persisted state on the next run.
-
 ## Running tests
 
-The project includes full NixOS VM tests that boot a virtual machine, log in as a user, and exercise the sandbox entry/exit lifecycle:
-
 ```bash
-nix build .#checks.x86_64-linux.vm-bash
-nix build .#checks.x86_64-linux.vm-zsh
-nix build .#checks.x86_64-linux.vm-fish
+nix build .#checks.x86_64-linux.vm-sbox
+nix build .#checks.x86_64-linux.vm-audio
 ```
+
+## Direnv Integration
+
+For automatic sandboxing when `cd`-ing into project directories with `.envrc`, see the [direnv-sandbox](./direnv-sandbox/) sub-project.
 
 ## License
 

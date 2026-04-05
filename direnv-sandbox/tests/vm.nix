@@ -22,14 +22,15 @@ let
       programs.zsh.enable = shell == "zsh";
       programs.fish.enable = shell == "fish";
 
+      programs.sbox = {
+        bind = {
+          "$HOME/.cache" = {};
+        };
+      };
+
       programs.direnv = {
         enable = true;
-        sandbox = {
-          enable = true;
-          bind = {
-            "$HOME/.cache" = {};
-          };
-        };
+        sandbox.enable = true;
       };
 
       system.activationScripts.createProject =
