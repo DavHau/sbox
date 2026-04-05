@@ -354,13 +354,8 @@ Usage: sbox [OPTIONS] [COMMAND [ARGS...]]
 
 Launch an isolated development sandbox using bubblewrap and slirp4netns.
 
-The current working directory is mounted read-write as the project directory
-inside the sandbox. Use --chdir to override.
-
-If COMMAND is given (the first non-option argument), it and all subsequent
-arguments are executed inside the sandbox. Arguments after COMMAND are passed
-through verbatim, even if they start with --. Without a command, an
-interactive shell is started.
+Sandboxes the current directory (or --chdir DIR). Runs COMMAND if given,
+otherwise starts an interactive shell.
 
 Options:
   --chdir DIR             Use DIR as the project directory instead of \$PWD
