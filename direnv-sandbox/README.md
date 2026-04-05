@@ -1,6 +1,8 @@
 # direnv-sandbox
 
-![direnv-sandbox](https://gist.githubusercontent.com/DavHau/87d0c3b66bd44b852e5f85bb555202e8/raw/direnv-sandbox.jpg)
+<p align="center">
+  <img src="https://gist.githubusercontent.com/DavHau/87d0c3b66bd44b852e5f85bb555202e8/raw/direnv-sandbox-small.jpg" alt="direnv-sandbox" />
+</p>
 
 **`direnv allow` without the trust issues.**
 

@@ -1,5 +1,9 @@
 # sbox
 
+<p align="center">
+  <img src="https://gist.githubusercontent.com/DavHau/87d0c3b66bd44b852e5f85bb555202e8/raw/sbox-logo-small.jpg" alt="sbox" />
+</p>
+
 **Like sudo, but in reverse.**
 Sandboxing you won't notice — until you need it.
 
