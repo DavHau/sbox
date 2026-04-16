@@ -158,7 +158,7 @@ let
       [ -z "''${SEEN_DIRS[$mount_dir]:-}" ] || continue
       SEEN_DIRS[$mount_dir]=1
       # Skip dirs already covered by --ro-bind /nix /nix
-      [[ "$mount_dir" == /nix/store/* ]] && continue
+      [[ "$mount_dir" == /nix/* ]] && continue
       PATH_BIND_ARGS+=(--ro-bind "$mount_dir" "$mount_dir")
     done
 
