@@ -377,5 +377,25 @@ testers.runNixOSTest {
         val = machine.wait_until_succeeds("nc -w 1 127.0.0.1 8889", timeout=15).strip()
         assert "blocked-sandbox-hello" in val, \
             f"Expected 'blocked-sandbox-hello' from sandbox service via --expose-port in blocked mode, got: {val!r}"
+
+    with subtest("nix-path-skip: PATH entries under /nix but outside /nix/store do not break bwrap"):
+        # /nix is already mounted via --ro-bind /nix /nix.
+        # If the PATH loop only skips /nix/store/* (not all /nix/*),
+        # a PATH entry like /nix/var/nix/profiles/default/bin causes bwrap
+        # to attempt a redundant bind-mount onto a symlink destination that
+        # lives under the already-mounted /nix, which fails.
+        #
+        # Reproduce by creating a symlink under /nix/ (mimicking a NixOS
+        # profile) whose target has a bin/ directory, then putting that
+        # bin/ in PATH.
+        machine.succeed(
+            "mkdir -p /tmp/fake-profile/bin && "
+            "ln -sfn /tmp/fake-profile /nix/var/nix/profiles/sbox-test-profile"
+        )
+        val = machine.succeed(
+            f"su - alice -c 'export PATH=\"/nix/var/nix/profiles/sbox-test-profile/bin:$PATH\"; cd \"{project}\" && sbox echo nix-path-ok'"
+        ).strip()
+        assert "nix-path-ok" in val, \
+            f"Expected sbox to handle /nix/var/... in PATH, got: {val!r}"
   '';
 }
