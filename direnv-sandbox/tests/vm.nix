@@ -1,8 +1,8 @@
 { nixosModule, shell ? "bash" }:
-{ lib, testers, bash, zsh, fish, ... }:
+{ lib, testers, bash, zsh, fish, nushell, ... }:
 let
   common = import ./vm-common.nix {
-    inherit lib testers bash zsh fish shell;
+    inherit lib testers bash zsh fish nushell shell;
     name = "direnv-sandbox";
     nodeConfig = nodeConfig;
   };
