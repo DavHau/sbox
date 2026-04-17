@@ -312,6 +312,7 @@ let
       --ro-bind-try /etc/bashrc /etc/bashrc \
       --ro-bind-try /etc/bash.bashrc /etc/bash.bashrc \
       --ro-bind-try /etc/zshrc /etc/zshrc \
+      --ro-bind-try /etc/zinputrc /etc/zinputrc \
       --ro-bind-try /etc/zsh /etc/zsh \
       --ro-bind-try /etc/fish /etc/fish \
       --ro-bind-try /etc/fonts /etc/fonts \
