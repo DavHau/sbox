@@ -130,12 +130,24 @@ let
       AUDIO_ARGS+=(--dev-bind-try /dev/snd /dev/snd)
     fi
 
-    # jj (Jujutsu) config: mount global config read-only but provide a
-    # writable tmpfs for per-repo state so jj can function without leaking
-    # or tampering with host repo configs.
+    # jj (Jujutsu) config: mount a tmpfs at ~/.config/jj so jj can create
+    # per-repo state under repos/ without leaking to or tampering with the
+    # host. Re-bind each host entry (config.toml, conf.d, etc.) read-only on
+    # top of the tmpfs, skipping 'repos' which must stay writable.
+    #
+    # A simpler '--ro-bind ~/.config/jj' followed by '--tmpfs ~/.config/jj/repos'
+    # fails when repos/ does not exist on the host: bwrap cannot mkdir the
+    # mountpoint inside a read-only mount.
     JJ_ARGS=()
     if [ -d "$HOME/.config/jj" ]; then
-      JJ_ARGS+=(--tmpfs "$HOME/.config/jj/repos")
+      JJ_ARGS+=(--tmpfs "$HOME/.config/jj")
+      shopt -s nullglob dotglob
+      for jj_entry in "$HOME/.config/jj"/*; do
+        jj_name="$(basename "$jj_entry")"
+        [ "$jj_name" = repos ] && continue
+        JJ_ARGS+=(--ro-bind "$jj_entry" "$jj_entry")
+      done
+      shopt -u nullglob dotglob
     fi
 
     # SSH known_hosts: share host's known_hosts read-only so git/ssh work.
@@ -311,7 +323,6 @@ let
       --ro-bind "$SHELL" "$SHELL" \
       --ro-bind-try $HOME/.gitconfig $HOME/.gitconfig \
       --ro-bind-try $HOME/.config/git $HOME/.config/git \
-      --ro-bind-try $HOME/.config/jj $HOME/.config/jj \
       "''${JJ_ARGS[@]}" \
       --ro-bind-try /etc/gitconfig /etc/gitconfig \
       "''${KNOWN_HOSTS_ARGS[@]}" \

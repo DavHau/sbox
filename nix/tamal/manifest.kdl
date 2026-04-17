@@ -5,7 +5,7 @@ version "1.0.0"
 default-fetch-time eval
 inputs {
 	nilla {
-		archive fetch-time=eval {
+		archive {
 			url "https://github.com/nilla-nix/nilla/archive/{{fresh_value}}.tar.gz"
 		}
 		hash algorithm=SHA-256
@@ -15,7 +15,7 @@ inputs {
 		}
 	}
 	nixpkgs {
-		archive fetch-time=eval {
+		archive {
 			url "https://github.com/NixOS/nixpkgs/archive/{{fresh_value}}.tar.gz"
 		}
 		hash algorithm=SHA-256
@@ -25,7 +25,7 @@ inputs {
 		}
 	}
 	wrappers {
-		archive fetch-time=eval {
+		archive {
 			url "https://github.com/lassulus/wrappers/archive/{{fresh_value}}.tar.gz"
 		}
 		hash algorithm=SHA-256
@@ -35,7 +35,7 @@ inputs {
 		}
 	}
 	nilla-cli {
-		archive fetch-time=eval {
+		archive {
 			url "https://github.com/nilla-nix/cli/archive/{{fresh_value}}.tar.gz"
 		}
 		hash algorithm=SHA-256
@@ -45,7 +45,7 @@ inputs {
 		}
 	}
 	home-manager {
-		archive fetch-time=eval {
+		archive {
 			url "https://github.com/nix-community/home-manager/archive/{{fresh_value}}.tar.gz"
 		}
 		hash algorithm=SHA-256

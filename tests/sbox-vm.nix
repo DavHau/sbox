@@ -312,6 +312,17 @@ testers.runNixOSTest {
         assert "ephemeral-cmd" not in val, \
             f"Expected no history persistence with --history off, got: {val!r}"
 
+    with subtest("jj config: sbox works when ~/.config/jj exists but repos subdir does not"):
+        # Reproduces bug: bwrap fails with
+        #   "Can't mkdir /home/alice/.config/jj/repos: Read-only file system"
+        # because the script ro-binds ~/.config/jj then tries to tmpfs-mount
+        # ~/.config/jj/repos on top of the read-only mount.
+        machine.succeed("su - alice -c 'rm -rf /home/alice/.config/jj'")
+        machine.succeed("su - alice -c 'mkdir -p /home/alice/.config/jj && echo x > /home/alice/.config/jj/config.toml'")
+        val = sbox_run("echo jj-ok")
+        assert val == "jj-ok", \
+            f"Expected sandbox to start with jj config dir present, got: {val!r}"
+
     # --- --network blocked tests ---
 
     with subtest("network blocked: no tap0 interface"):
