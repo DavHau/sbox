@@ -29,6 +29,8 @@ testers.runNixOSTest {
         pkgs.netcat.nc
         pkgs.iproute2
         pkgs.iputils
+        pkgs.zsh
+        pkgs.fish
       ];
 
       system.activationScripts.createProject = {
@@ -133,7 +135,7 @@ testers.runNixOSTest {
         assert "MISSING" in val or "No such file" in val, \
             f"Expected /tmp to be isolated, got: {val!r}"
 
-    with subtest("basic sandbox: PS1 is prefixed with [sandbox]"):
+    with subtest("basic sandbox: bash PS1 is prefixed with [sandbox]"):
         # Write a helper script to avoid quoting issues
         machine.succeed(f"echo 'echo \"$PS1\" > \"{project}/ps1-out\"' > \"{project}/check-ps1.sh\"")
         machine.succeed(f"chmod +x \"{project}/check-ps1.sh\"")
@@ -142,7 +144,31 @@ testers.runNixOSTest {
         )
         val = machine.succeed(f"cat \"{project}/ps1-out\"").strip()
         assert val.startswith("[sandbox]"), \
-            f"Expected PS1 to start with '[sandbox]', got: {val!r}"
+            f"Expected bash PS1 to start with '[sandbox]', got: {val!r}"
+
+    with subtest("basic sandbox: zsh prompt is prefixed with [sandbox]"):
+        machine.succeed(
+            f"echo 'print -P \"$PROMPT\" > \"{project}/zsh-prompt-out\"' > \"{project}/check-zsh-prompt.zsh\""
+        )
+        machine.succeed(f"chmod +x \"{project}/check-zsh-prompt.zsh\"")
+        machine.succeed(
+            f"su - alice -c 'cd \"{project}\" && sbox zsh -i \"{project}/check-zsh-prompt.zsh\"'"
+        )
+        val = machine.succeed(f"cat \"{project}/zsh-prompt-out\"").strip()
+        assert "[sandbox]" in val, \
+            f"Expected zsh prompt to contain '[sandbox]', got: {val!r}"
+
+    with subtest("basic sandbox: fish prompt is prefixed with [sandbox]"):
+        machine.succeed(
+            f"echo 'fish_prompt > \"{project}/fish-prompt-out\"' > \"{project}/check-fish-prompt.fish\""
+        )
+        machine.succeed(f"chmod +x \"{project}/check-fish-prompt.fish\"")
+        machine.succeed(
+            f"su - alice -c 'cd \"{project}\" && sbox fish \"{project}/check-fish-prompt.fish\"'"
+        )
+        val = machine.succeed(f"cat \"{project}/fish-prompt-out\"").strip()
+        assert "[sandbox]" in val, \
+            f"Expected fish prompt to contain '[sandbox]', got: {val!r}"
 
     with subtest("basic sandbox: /nix is available"):
         val = sbox_run("test -d /nix/store && echo yes")

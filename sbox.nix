@@ -68,6 +68,12 @@ let
       __original_fish_prompt
     end
   '';
+  zshPrompt = writeText "sandbox-prompt.zshrc" ''
+    # Source the user's original zshrc if present
+    [ -f "$HOME/.zshrc.orig" ] && . "$HOME/.zshrc.orig"
+    # Prepend [sandbox] to whatever PROMPT was configured
+    PROMPT="[sandbox] ''${PROMPT}"
+  '';
   entrypoint =
     if shellHook == "" then
       "$SHELL"
@@ -298,7 +304,8 @@ let
       --ro-bind ${bashPrompt} $HOME/.bashrc \
       --ro-bind-try $HOME/.bash_profile $HOME/.bash_profile \
       --ro-bind-try $HOME/.profile $HOME/.profile \
-      --ro-bind-try $HOME/.zshrc $HOME/.zshrc \
+      --ro-bind-try $HOME/.zshrc $HOME/.zshrc.orig \
+      --ro-bind ${zshPrompt} $HOME/.zshrc \
       --ro-bind-try $HOME/.zshenv $HOME/.zshenv \
       --ro-bind-try $HOME/.zprofile $HOME/.zprofile \
       --ro-bind-try $HOME/.config/fish/config.fish $HOME/.config/fish/config.fish \
