@@ -529,6 +529,7 @@ USAGE
     HISTORY_FILES=(
       "$HOME/.bash_history"
       "$HOME/.zsh_history"
+      "$HOME/.local/share/zsh/history"
       "$HOME/.local/share/fish/fish_history"
     )
     if [ "$HISTORY_MODE" = "host" ]; then

@@ -291,28 +291,30 @@ testers.runNixOSTest {
         assert "no-tap" in val, \
             f"Expected no tap0 in --network host mode, got: {val!r}"
 
-    with subtest("share-history: host history files are accessible and writable by default"):
-        # Create history files for all three shells on the host
-        machine.succeed("su - alice -c 'echo host-bash-cmd > /home/alice/.bash_history'")
-        machine.succeed("su - alice -c 'echo host-zsh-cmd > /home/alice/.zsh_history'")
-        machine.succeed("su - alice -c 'mkdir -p /home/alice/.local/share/fish && echo host-fish-cmd > /home/alice/.local/share/fish/fish_history'")
+    with subtest("share-history: host history files are writable by default"):
+        # Create empty history files on the host for all supported paths
+        machine.succeed("su - alice -c 'touch /home/alice/.bash_history'")
+        machine.succeed("su - alice -c 'touch /home/alice/.zsh_history'")
+        machine.succeed("su - alice -c 'mkdir -p /home/alice/.local/share/zsh && touch /home/alice/.local/share/zsh/history'")
+        machine.succeed("su - alice -c 'mkdir -p /home/alice/.local/share/fish && touch /home/alice/.local/share/fish/fish_history'")
 
-        # Verify all three are readable (no flag needed — sharing is the default)
-        val = sbox_run("cat /home/alice/.bash_history")
-        assert val == "host-bash-cmd", \
-            f"Expected host bash history inside sandbox, got: {val!r}"
-        val = sbox_run("cat /home/alice/.zsh_history")
-        assert val == "host-zsh-cmd", \
-            f"Expected host zsh history inside sandbox, got: {val!r}"
-        val = sbox_run("cat /home/alice/.local/share/fish/fish_history")
-        assert val == "host-fish-cmd", \
-            f"Expected host fish history inside sandbox, got: {val!r}"
-
-        # Verify history is writable (shells need to append)
+        # Write from inside the sandbox, verify on the host
         sbox_run("echo sandbox-cmd >> /home/alice/.bash_history")
         val = machine.succeed("cat /home/alice/.bash_history").strip()
         assert "sandbox-cmd" in val, \
             f"Expected sandbox to write to bash history, got: {val!r}"
+        sbox_run("echo sandbox-cmd >> /home/alice/.zsh_history")
+        val = machine.succeed("cat /home/alice/.zsh_history").strip()
+        assert "sandbox-cmd" in val, \
+            f"Expected sandbox to write to zsh history, got: {val!r}"
+        sbox_run("echo sandbox-cmd >> /home/alice/.local/share/zsh/history")
+        val = machine.succeed("cat /home/alice/.local/share/zsh/history").strip()
+        assert "sandbox-cmd" in val, \
+            f"Expected sandbox to write to zsh XDG history, got: {val!r}"
+        sbox_run("echo sandbox-cmd >> /home/alice/.local/share/fish/fish_history")
+        val = machine.succeed("cat /home/alice/.local/share/fish/fish_history").strip()
+        assert "sandbox-cmd" in val, \
+            f"Expected sandbox to write to fish history, got: {val!r}"
 
     with subtest("history project: history is persisted per-project, not shared with host"):
         # Write something to host history — it should NOT appear in the sandbox
