@@ -11,7 +11,7 @@ Sandboxing you won't notice — until you need it.
 
 Type `sbox`, and your shell is sandboxed. The project stays writable, the rest of your system disappears — but it still feels like home, because sbox brings along everything that makes your shell yours:
 
-- **Your shell** — bash, zsh, or fish, with your rc files and prompt
+- **Your shell** — bash, zsh, fish, or nushell, with your rc files and prompt
 - **Your tools** — every program on your `$PATH`, mounted read-only
 - **Your history** — shell history shared from the host (or per-project, your choice)
 - **Your git config** — global gitconfig and jj config, ready to commit
@@ -145,7 +145,7 @@ Any options configured via the NixOS/HM module are baked into the `sbox` wrapper
 
 ### Shell history
 
-By default `shareHistory = "host"`: the host's bash, zsh, and fish history files are bind-mounted read-write into every sandbox. Set `shareHistory = "project"` for per-project history, or `"off"` to disable:
+By default `shareHistory = "host"`: the host's bash, zsh, fish, and nushell history files are bind-mounted read-write into every sandbox. Set `shareHistory = "project"` for per-project history, or `"off"` to disable:
 
 ```nix
 programs.sbox.shareHistory = "project";

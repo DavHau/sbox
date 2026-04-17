@@ -43,6 +43,7 @@ in
       enableBashIntegration = lib.mkForce false;
       enableZshIntegration = lib.mkForce false;
       enableFishIntegration = lib.mkForce false;
+      enableNushellIntegration = lib.mkForce false;
     };
 
     programs.bash.initExtra = ''
@@ -63,6 +64,12 @@ in
       set -gx DIRENV_SANDBOX_CMD "${lib.getExe cfg.sandboxCommand}"
       set -gx DIRENV_SANDBOX_DIRENV_BIN "${lib.getExe direnv-cfg.package}"
       source "${pkg}/share/direnv-sandbox/direnv-sandbox.fish"
+    '';
+
+    programs.nushell.extraConfig = ''
+      $env.DIRENV_SANDBOX_CMD = "${lib.getExe cfg.sandboxCommand}"
+      $env.DIRENV_SANDBOX_DIRENV_BIN = "${lib.getExe direnv-cfg.package}"
+      source ${pkg}/share/direnv-sandbox/direnv-sandbox.nu
     '';
   };
 }
