@@ -160,6 +160,11 @@ nilla.create [
             check = import ./direnv-sandbox/tests/hm-vm.nix { inherit homeManagerModule home-manager-src; shell = "fish"; };
           };
 
+          vm-hm-nushell = {
+            inherit systems;
+            check = import ./direnv-sandbox/tests/hm-vm.nix { inherit homeManagerModule home-manager-src; shell = "nushell"; };
+          };
+
           vm-sbox = {
             inherit systems;
             check = import ./tests/sbox-vm.nix { sboxPackage = import ./sbox.nix; };

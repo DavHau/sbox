@@ -74,6 +74,17 @@ let
     # Prepend [sandbox] to whatever PROMPT was configured
     PROMPT="[sandbox] ''${PROMPT}"
   '';
+  nushellPrompt = writeText "sandbox-prompt.nu" ''
+    let __sbox_user_prompt = ($env.PROMPT_COMMAND? | default {|| "" })
+    $env.PROMPT_COMMAND = {||
+      let orig = if (($__sbox_user_prompt | describe) | str starts-with "closure") {
+        do $__sbox_user_prompt
+      } else {
+        $__sbox_user_prompt | into string
+      }
+      $"(ansi green)[sandbox](ansi reset) ($orig)"
+    }
+  '';
   entrypoint =
     if shellHook == "" then
       "$SHELL"
@@ -309,6 +320,10 @@ let
       --ro-bind-try $HOME/.zshenv $HOME/.zshenv \
       --ro-bind-try $HOME/.zprofile $HOME/.zprofile \
       --ro-bind-try $HOME/.config/fish/config.fish $HOME/.config/fish/config.fish \
+      --ro-bind-try $HOME/.config/nushell/config.nu $HOME/.config/nushell/config.nu \
+      --ro-bind-try $HOME/.config/nushell/env.nu $HOME/.config/nushell/env.nu \
+      --dir $HOME/.local/share/nushell/vendor/autoload \
+      --ro-bind ${nushellPrompt} $HOME/.local/share/nushell/vendor/autoload/sandbox-prompt.nu \
       --ro-bind-try /etc/bashrc /etc/bashrc \
       --ro-bind-try /etc/bash.bashrc /etc/bash.bashrc \
       --ro-bind-try /etc/zshrc /etc/zshrc \
@@ -532,6 +547,8 @@ USAGE
       "$HOME/.zsh_history"
       "$HOME/.local/share/zsh/history"
       "$HOME/.local/share/fish/fish_history"
+      "$HOME/.config/nushell/history.txt"
+      "$HOME/.config/nushell/history.sqlite3"
     )
     if [ "$HISTORY_MODE" = "host" ]; then
       for hf in "''${HISTORY_FILES[@]}"; do

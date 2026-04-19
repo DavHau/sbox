@@ -2,10 +2,10 @@
 # Uses the same test script as vm.nix via vm-common.nix, but configures
 # direnv-sandbox through home-manager instead of the NixOS module.
 { homeManagerModule, home-manager-src, shell ? "bash" }:
-{ lib, testers, bash, zsh, fish, ... }:
+{ lib, testers, bash, zsh, fish, nushell, ... }:
 let
   common = import ./vm-common.nix {
-    inherit lib testers bash zsh fish shell;
+    inherit lib testers bash zsh fish nushell shell;
     name = "direnv-sandbox-hm";
     nodeConfig = nodeConfig;
   };
@@ -25,6 +25,7 @@ let
       };
 
       # Enable zsh/fish at the system level so the shell binary is available.
+      # nushell needs no system-level enable, the binary in users.users.alice.shell is sufficient.
       programs.zsh.enable = shell == "zsh";
       programs.fish.enable = shell == "fish";
 
@@ -39,6 +40,7 @@ let
         programs.bash.enable = shell == "bash";
         programs.zsh.enable = shell == "zsh";
         programs.fish.enable = shell == "fish";
+        programs.nushell.enable = shell == "nushell";
 
         programs.sbox = {
           bind = {

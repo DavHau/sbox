@@ -8,6 +8,7 @@ stdenvNoCC.mkDerivation {
       ./direnv-sandbox.bash
       ./direnv-sandbox.zsh
       ./direnv-sandbox.fish
+      ./direnv-sandbox.nu
       ./direnv-sandbox-cmd.bash
     ];
   };
@@ -17,6 +18,7 @@ stdenvNoCC.mkDerivation {
     cp direnv-sandbox.bash $out/share/direnv-sandbox/
     cp direnv-sandbox.zsh $out/share/direnv-sandbox/
     cp direnv-sandbox.fish $out/share/direnv-sandbox/
+    cp direnv-sandbox.nu $out/share/direnv-sandbox/
     cp direnv-sandbox-cmd.bash $out/bin/direnv-sandbox
     chmod +x $out/bin/direnv-sandbox
   '';

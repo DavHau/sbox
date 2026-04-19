@@ -21,10 +21,12 @@ It feels like normal direnv. You don't interact with the sandbox at all.
 ## Features
 
 - **Transparent entry/exit** — `cd` in, `cd` out. That's it.
-- **Works with bash, zsh, and fish**
+- **Works with bash, zsh, fish, and nushell\***
 - **Feels native** — your shell, your prompt, your history, your tools, your git config — all there
 - **Networking just works** — `nix build`, `npm install`, `cargo fetch` — no extra setup
 - **Per-directory opt-out** — `direnv-sandbox off` to disable sandboxing for trusted projects
+
+<sub>\* nushell is only supported via the Home Manager module.</sub>
 
 ## Installation
 
@@ -113,6 +115,7 @@ nix build .#checks.x86_64-linux.vm-fish
 nix build .#checks.x86_64-linux.vm-hm-bash
 nix build .#checks.x86_64-linux.vm-hm-zsh
 nix build .#checks.x86_64-linux.vm-hm-fish
+nix build .#checks.x86_64-linux.vm-hm-nushell
 ```
 
 ## License
