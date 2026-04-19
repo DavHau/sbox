@@ -4,6 +4,7 @@ let
 in
 nilla.create [
   ./modules/nilla/checks.nix
+  ./modules/nilla/vm-tests.nix
   ./modules/nilla/flake-outputs.nix
   (
     { config }:
@@ -167,12 +168,76 @@ nilla.create [
 
           vm-sbox = {
             inherit systems;
-            check = import ./tests/sbox-vm.nix { sboxPackage = import ./sbox.nix; };
+            check = import ./tests/sbox/all.nix { sboxPackage = import ./sbox.nix; };
           };
-
           vm-audio = {
             inherit systems;
             check = import ./tests/audio-vm.nix { sboxPackage = import ./sbox.nix; };
+          };
+        };
+
+        vmTests = {
+          vm-sbox-command-syntax = {
+            inherit systems;
+            check = import ./tests/sbox/lib/mk-test.nix {
+              sboxPackage = import ./sbox.nix;
+              name = "sbox-command-syntax";
+              modules = [ ./tests/sbox/command-syntax.nix ];
+            };
+          };
+
+          vm-sbox-basic = {
+            inherit systems;
+            check = import ./tests/sbox/lib/mk-test.nix {
+              sboxPackage = import ./sbox.nix;
+              name = "sbox-basic";
+              modules = [ ./tests/sbox/basic-sandbox.nix ];
+            };
+          };
+
+          vm-sbox-ports = {
+            inherit systems;
+            check = import ./tests/sbox/lib/mk-test.nix {
+              sboxPackage = import ./sbox.nix;
+              name = "sbox-ports";
+              modules = [ ./tests/sbox/ports.nix ];
+            };
+          };
+
+          vm-sbox-persist = {
+            inherit systems;
+            check = import ./tests/sbox/lib/mk-test.nix {
+              sboxPackage = import ./sbox.nix;
+              name = "sbox-persist";
+              modules = [ ./tests/sbox/persist.nix ];
+            };
+          };
+
+          vm-sbox-network = {
+            inherit systems;
+            check = import ./tests/sbox/lib/mk-test.nix {
+              sboxPackage = import ./sbox.nix;
+              name = "sbox-network";
+              modules = [ ./tests/sbox/network.nix ];
+            };
+          };
+
+          vm-sbox-history = {
+            inherit systems;
+            check = import ./tests/sbox/lib/mk-test.nix {
+              sboxPackage = import ./sbox.nix;
+              name = "sbox-history";
+              modules = [ ./tests/sbox/history.nix ];
+            };
+          };
+
+          vm-sbox-misc = {
+            inherit systems;
+            check = import ./tests/sbox/lib/mk-test.nix {
+              sboxPackage = import ./sbox.nix;
+              name = "sbox-misc";
+              modules = [ ./tests/sbox/misc.nix ];
+            };
           };
         };
       };

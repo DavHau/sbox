@@ -29,6 +29,9 @@ in
 
       checks = forAllSystems (system:
         nixpkgsLib.mapAttrs (_: check: check.result.${system}) config.checks);
+
+      vm-tests = forAllSystems (system:
+        nixpkgsLib.mapAttrs (_: t: t.result.${system}) config.vmTests);
     };
   };
 }
