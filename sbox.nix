@@ -290,6 +290,12 @@ let
       ID_ARGS+=(--unshare-user --uid "$__SANDBOX_UID" --gid "$__SANDBOX_GID")
     fi
 
+    # Publish bwrap's host PID so the outer script can derive INIT_PID
+    # (bwrap's first child) for nsenter-based joiners.
+    if [ -n "''${__SANDBOX_COORD_DIR:-}" ]; then
+      echo $$ > "$__SANDBOX_COORD_DIR/bwrap-pid"
+    fi
+
     echo "Starting bubblewrap sandbox in: $PROJECT_DIR"
     exec ${bubblewrap}/bin/bwrap \
       --die-with-parent \
@@ -377,6 +383,7 @@ let
     USE_HOST_NET=0
     USE_NO_NET=0
     USE_AUDIO=0
+    SHARE_NS=0
     SHARE_KNOWN_HOSTS=1
     HISTORY_MODE="host"
     ALLOW_PARENT="off"
@@ -418,6 +425,8 @@ Options:
   --history MODE          Shell history mode: "host" (shared, default), "project"
                           (per-project), or "off" (no persistence)
   --audio                 Allow audio playback and capture (PipeWire passthrough)
+  --share                 Join an existing sbox running in the same project
+                          directory instead of starting a fresh sandbox
   --no-known-hosts        Don't share ~/.ssh/known_hosts with the sandbox
   -h, --help              Show this help message
 
@@ -450,6 +459,10 @@ USAGE
           ;;
         --audio)
           USE_AUDIO=1
+          shift
+          ;;
+        --share)
+          SHARE_NS=1
           shift
           ;;
         --no-known-hosts)
@@ -530,6 +543,102 @@ USAGE
       fi
       cd "$CHDIR"
     fi
+
+    # ---------------------------------------------------------------------
+    # Shared-namespace coordination: when a second sbox is launched in the
+    # same project directory (same realpath, same uid) as an already-
+    # running leader, attach to the leader's namespaces via nsenter instead
+    # of creating a fresh sandbox. See docs/shared-namespace.md.
+    # ---------------------------------------------------------------------
+    if [ "$SHARE_NS" = 1 ] && [ -z "''${SANDBOX:-}" ]; then
+      _SBOX_COORD_PROJECT="$(realpath "$(pwd)")"
+      _SBOX_COORD_KEY=$(printf '%s\n%s' "$_SBOX_COORD_PROJECT" "$(id -u)" \
+        | sha256sum | cut -d' ' -f1)
+      _SBOX_COORD_BASE="''${XDG_RUNTIME_DIR:-/tmp/sbox-$(id -u)}/sbox"
+      _SBOX_COORD_DIR="$_SBOX_COORD_BASE/$_SBOX_COORD_KEY"
+      mkdir -p "$_SBOX_COORD_DIR"
+      exec 9>"$_SBOX_COORD_DIR/lock"
+      ${util-linux}/bin/flock 9
+
+      # Owner-pid is set by a leader at start; leader-pid is set by the
+      # helper once bwrap forks. A joiner sees a live owner, waits briefly
+      # for leader-pid, then nsenters.
+      _SBOX_OWNER_PID=""
+      if [ -s "$_SBOX_COORD_DIR/owner-pid" ]; then
+        _SBOX_OWNER_PID=$(cat "$_SBOX_COORD_DIR/owner-pid")
+      fi
+
+      if [ -n "$_SBOX_OWNER_PID" ] && kill -0 "$_SBOX_OWNER_PID" 2>/dev/null; then
+        # Active leader exists. Release the lock so the leader's helper can
+        # finish writing leader-pid, then wait for it.
+        ${util-linux}/bin/flock -u 9
+        exec 9>&-
+        for _ in $(seq 1 600); do
+          if [ -s "$_SBOX_COORD_DIR/leader-pid" ]; then
+            _SBOX_LEADER_PID=$(cat "$_SBOX_COORD_DIR/leader-pid")
+            if [ -n "$_SBOX_LEADER_PID" ] && kill -0 "$_SBOX_LEADER_PID" 2>/dev/null; then
+              _SBOX_JOIN_CMD=()
+              if [ ''${#EXEC_CMD[@]} -gt 0 ]; then
+                _SBOX_JOIN_CMD=("''${EXEC_CMD[@]}")
+              else
+                _SBOX_JOIN_CMD=("$SHELL")
+              fi
+              echo "Joining existing sbox in: $_SBOX_COORD_PROJECT (leader pid $_SBOX_LEADER_PID)" >&2
+              exec ${util-linux}/bin/nsenter \
+                -t "$_SBOX_LEADER_PID" \
+                -U -m -p -n -i -u \
+                --preserve-credentials \
+                --wd="$_SBOX_COORD_PROJECT" \
+                -- "''${_SBOX_JOIN_CMD[@]}"
+            fi
+          fi
+          # Re-check owner liveness while waiting (leader may crash during setup).
+          kill -0 "$_SBOX_OWNER_PID" 2>/dev/null || break
+          sleep 0.1
+        done
+        # Owner died or never published leader-pid; reacquire lock and take over.
+        exec 9>"$_SBOX_COORD_DIR/lock"
+        ${util-linux}/bin/flock 9
+      fi
+
+      # Becoming leader: stale state from a dead owner gets cleared.
+      rm -f "$_SBOX_COORD_DIR/owner-pid" \
+            "$_SBOX_COORD_DIR/bwrap-pid" \
+            "$_SBOX_COORD_DIR/leader-pid"
+
+      echo $$ > "$_SBOX_COORD_DIR/owner-pid"
+      export __SANDBOX_COORD_DIR="$_SBOX_COORD_DIR"
+      _sbox_coord_cleanup() {
+        rm -f "$_SBOX_COORD_DIR/owner-pid" \
+              "$_SBOX_COORD_DIR/leader-pid" \
+              "$_SBOX_COORD_DIR/bwrap-pid" \
+              "$_SBOX_COORD_DIR/lock"
+        rmdir "$_SBOX_COORD_DIR" 2>/dev/null || :
+      }
+      trap _sbox_coord_cleanup EXIT
+
+      # Background: once innerScript publishes bwrap's host PID, derive
+      # bwrap's first child (the namespace-owning init in the new pidns)
+      # and publish it as the nsenter target for joiners.
+      (
+        for _ in $(seq 1 200); do
+          [ -s "$_SBOX_COORD_DIR/bwrap-pid" ] && break
+          sleep 0.05
+        done
+        BWRAP_PID=$(cat "$_SBOX_COORD_DIR/bwrap-pid" 2>/dev/null || true)
+        [ -z "$BWRAP_PID" ] && exit 0
+        for _ in $(seq 1 200); do
+          INIT_PID=$(cat /proc/$BWRAP_PID/task/$BWRAP_PID/children 2>/dev/null \
+            | awk '{print $1}')
+          [ -n "$INIT_PID" ] && break
+          sleep 0.05
+        done
+        [ -n "$INIT_PID" ] && echo "$INIT_PID" > "$_SBOX_COORD_DIR/leader-pid"
+      ) &
+
+      ${util-linux}/bin/flock -u 9
+    fi
+
 
     # Per-project state directory, computed lazily for --persist and --history project.
     _project_state_dir() {

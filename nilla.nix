@@ -240,6 +240,15 @@ nilla.create [
             };
           };
 
+          vm-sbox-share-namespace = {
+            inherit systems;
+            check = import ./tests/sbox/lib/mk-test.nix {
+              sboxPackage = import ./sbox.nix;
+              name = "sbox-share-namespace";
+              modules = [ ./tests/sbox/share-namespace.nix ];
+            };
+          };
+
           vm-sbox-misc = {
             inherit systems;
             check = import ./tests/sbox/lib/mk-test.nix {

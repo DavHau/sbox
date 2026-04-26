@@ -11,6 +11,7 @@ import ./lib/mk-test.nix {
     ./persist-home.nix
     ./network.nix
     ./history.nix
+    ./share-namespace.nix
     ./misc.nix
     ./devices.nix
   ];
