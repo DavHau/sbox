@@ -213,6 +213,15 @@ nilla.create [
             };
           };
 
+          vm-sbox-persist-home = {
+            inherit systems;
+            check = import ./tests/sbox/lib/mk-test.nix {
+              sboxPackage = import ./sbox.nix;
+              name = "sbox-persist-home";
+              modules = [ ./tests/sbox/persist-home.nix ];
+            };
+          };
+
           vm-sbox-network = {
             inherit systems;
             check = import ./tests/sbox/lib/mk-test.nix {

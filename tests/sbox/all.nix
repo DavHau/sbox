@@ -8,6 +8,7 @@ import ./lib/mk-test.nix {
     ./basic-sandbox.nix
     ./ports.nix
     ./persist.nix
+    ./persist-home.nix
     ./network.nix
     ./history.nix
     ./misc.nix
