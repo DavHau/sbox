@@ -133,37 +133,37 @@ nilla.create [
 
           vm-bash = {
             inherit systems;
-            check = import ./direnv-sandbox/tests/vm.nix { inherit nixosModule; shell = "bash"; };
+            check = import ./direnv-sandbox/tests/all-nixos.nix { inherit nixosModule; shell = "bash"; };
           };
 
           vm-zsh = {
             inherit systems;
-            check = import ./direnv-sandbox/tests/vm.nix { inherit nixosModule; shell = "zsh"; };
+            check = import ./direnv-sandbox/tests/all-nixos.nix { inherit nixosModule; shell = "zsh"; };
           };
 
           vm-fish = {
             inherit systems;
-            check = import ./direnv-sandbox/tests/vm.nix { inherit nixosModule; shell = "fish"; };
+            check = import ./direnv-sandbox/tests/all-nixos.nix { inherit nixosModule; shell = "fish"; };
           };
 
           vm-hm-bash = {
             inherit systems;
-            check = import ./direnv-sandbox/tests/hm-vm.nix { inherit homeManagerModule home-manager-src; shell = "bash"; };
+            check = import ./direnv-sandbox/tests/all-hm.nix { inherit homeManagerModule home-manager-src; shell = "bash"; };
           };
 
           vm-hm-zsh = {
             inherit systems;
-            check = import ./direnv-sandbox/tests/hm-vm.nix { inherit homeManagerModule home-manager-src; shell = "zsh"; };
+            check = import ./direnv-sandbox/tests/all-hm.nix { inherit homeManagerModule home-manager-src; shell = "zsh"; };
           };
 
           vm-hm-fish = {
             inherit systems;
-            check = import ./direnv-sandbox/tests/hm-vm.nix { inherit homeManagerModule home-manager-src; shell = "fish"; };
+            check = import ./direnv-sandbox/tests/all-hm.nix { inherit homeManagerModule home-manager-src; shell = "fish"; };
           };
 
           vm-hm-nushell = {
             inherit systems;
-            check = import ./direnv-sandbox/tests/hm-vm.nix { inherit homeManagerModule home-manager-src; shell = "nushell"; };
+            check = import ./direnv-sandbox/tests/all-hm.nix { inherit homeManagerModule home-manager-src; shell = "nushell"; };
           };
 
           vm-sbox = {
@@ -238,6 +238,71 @@ nilla.create [
               name = "sbox-misc";
               modules = [ ./tests/sbox/misc.nix ];
             };
+          };
+
+          # direnv-sandbox per-subtest isolated tests (bash only).
+          vm-direnv-allow-deny = {
+            inherit systems;
+            check =
+              { testers, bash, zsh, fish, nushell, ... }@pkgsArgs:
+              (import ./direnv-sandbox/tests/lib/mk-test.nix {
+                name = "direnv-sandbox-allow-deny";
+                shell = "bash";
+                nodeModule = import ./direnv-sandbox/tests/lib/vm-test-modules/node-nixos.nix {
+                  inherit nixosModule;
+                  shell = "bash";
+                  shellPkg = bash;
+                };
+                modules = [ ./direnv-sandbox/tests/allow-deny.nix ];
+              }) pkgsArgs;
+          };
+
+          vm-direnv-symlink = {
+            inherit systems;
+            check =
+              { testers, bash, zsh, fish, nushell, ... }@pkgsArgs:
+              (import ./direnv-sandbox/tests/lib/mk-test.nix {
+                name = "direnv-sandbox-symlink";
+                shell = "bash";
+                nodeModule = import ./direnv-sandbox/tests/lib/vm-test-modules/node-nixos.nix {
+                  inherit nixosModule;
+                  shell = "bash";
+                  shellPkg = bash;
+                };
+                modules = [ ./direnv-sandbox/tests/symlink.nix ];
+              }) pkgsArgs;
+          };
+
+          vm-direnv-entry-exit = {
+            inherit systems;
+            check =
+              { testers, bash, zsh, fish, nushell, ... }@pkgsArgs:
+              (import ./direnv-sandbox/tests/lib/mk-test.nix {
+                name = "direnv-sandbox-entry-exit";
+                shell = "bash";
+                nodeModule = import ./direnv-sandbox/tests/lib/vm-test-modules/node-nixos.nix {
+                  inherit nixosModule;
+                  shell = "bash";
+                  shellPkg = bash;
+                };
+                modules = [ ./direnv-sandbox/tests/entry-exit.nix ];
+              }) pkgsArgs;
+          };
+
+          vm-direnv-off-on = {
+            inherit systems;
+            check =
+              { testers, bash, zsh, fish, nushell, ... }@pkgsArgs:
+              (import ./direnv-sandbox/tests/lib/mk-test.nix {
+                name = "direnv-sandbox-off-on";
+                shell = "bash";
+                nodeModule = import ./direnv-sandbox/tests/lib/vm-test-modules/node-nixos.nix {
+                  inherit nixosModule;
+                  shell = "bash";
+                  shellPkg = bash;
+                };
+                modules = [ ./direnv-sandbox/tests/off-on.nix ];
+              }) pkgsArgs;
           };
         };
       };
