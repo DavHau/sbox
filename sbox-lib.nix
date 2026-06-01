@@ -19,6 +19,7 @@ let
   sboxArgs =
     (bindMountArgs "--bind-try" cfg.bind)
     ++ (bindMountArgs "--ro-bind-try" cfg.bindReadOnly)
+    ++ (lib.concatMap (d: [ "--dev-bind-try" d ]) cfg.bindDevices)
     ++ (lib.concatMap (p: [ "--allow-port" (toString p) ]) cfg.allowedTCPPorts)
     ++ (lib.concatMap (p: [ "--expose-port" (toString p) ]) cfg.exposedTCPPorts)
     ++ (lib.optionals (cfg.network == "host") [ "--network" "host" ])

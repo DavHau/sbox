@@ -12,5 +12,6 @@ import ./lib/mk-test.nix {
     ./network.nix
     ./history.nix
     ./misc.nix
+    ./devices.nix
   ];
 }

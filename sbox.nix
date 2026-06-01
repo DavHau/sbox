@@ -122,9 +122,12 @@ let
       EDITOR_ARGS+=(--setenv EDITOR "$EDITOR")
     fi
 
-    # Bind-mount GPU device nodes (NVIDIA + DRI) if present
+    # Bind-mount GPU device nodes (read-write, device access allowed) if present:
+    #   /dev/nvidia*, /dev/nvidia-caps/* — NVIDIA
+    #   /dev/dri/*                       — DRI render/card nodes (AMD, Intel, Mesa)
+    #   /dev/kfd                         — AMD KFD (ROCm/HIP compute)
     GPU_ARGS=()
-    for dev in /dev/nvidia* /dev/nvidia-caps/* /dev/dri/*; do
+    for dev in /dev/nvidia* /dev/nvidia-caps/* /dev/dri/* /dev/kfd; do
       [ -e "$dev" ] && GPU_ARGS+=(--dev-bind-try "$dev" "$dev")
     done
 
@@ -405,6 +408,9 @@ Options:
   --bind-try SRC DEST     Like --bind, but skip silently if SRC does not exist
   --ro-bind SRC DEST      Bind-mount SRC to DEST (read-only) inside the sandbox
   --ro-bind-try SRC DEST  Like --ro-bind, but skip silently if SRC does not exist
+  --dev-bind PATH         Bind-mount device node PATH into the sandbox at the same
+                          path, allowing device access (for extra /dev/* nodes)
+  --dev-bind-try PATH     Like --dev-bind, but skip silently if PATH does not exist
   --persist PATH          Persist PATH across sandbox sessions. Writes are
                           stored in \$XDG_STATE_HOME (~/.local/state) keyed by
                           project directory hash. Can be repeated.
@@ -483,6 +489,14 @@ USAGE
         --ro-bind-try)
           BIND_ARGS+=(--ro-bind-try "$2" "$3")
           shift 3
+          ;;
+        --dev-bind)
+          BIND_ARGS+=(--dev-bind "$2" "$2")
+          shift 2
+          ;;
+        --dev-bind-try)
+          BIND_ARGS+=(--dev-bind-try "$2" "$2")
+          shift 2
           ;;
         --chdir)
           CHDIR="$2"

@@ -249,6 +249,15 @@ nilla.create [
             };
           };
 
+          vm-sbox-devices = {
+            inherit systems;
+            check = import ./tests/sbox/lib/mk-test.nix {
+              sboxPackage = import ./sbox.nix;
+              name = "sbox-devices";
+              modules = [ ./tests/sbox/devices.nix ];
+            };
+          };
+
           # direnv-sandbox per-subtest isolated tests (bash only).
           vm-direnv-allow-deny = {
             inherit systems;

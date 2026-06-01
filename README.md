@@ -17,7 +17,7 @@ Type `sbox`, and your shell is sandboxed. The project stays writable, the rest o
 - **Your git config** — global gitconfig and jj config, ready to commit
 - **Your SSH known hosts** — so SSH host verification works out of the box
 - **Your editor** — `$EDITOR` resolved and available
-- **Your GPU** — NVIDIA and DRI devices passed through
+- **Your GPU** — NVIDIA, DRI, and AMD ROCm devices passed through
 - **Networking** — `curl`, `npm install`, `nix build` — it all just works
 
 And when you need to lock things down or open them up, everything is configurable: bind mounts, port forwarding, network modes, audio passthrough, persistent state, and more.
@@ -103,6 +103,10 @@ programs.sbox = {
   # Mount a GitHub-only SSH key into the sandbox (read-only)
   bindReadOnly."$HOME/.ssh/id_ed25519_github".to = "$HOME/.ssh/id_ed25519";
   bindReadOnly."$HOME/.ssh/id_ed25519_github.pub".to = "$HOME/.ssh/id_ed25519.pub";
+
+  # Mount extra device nodes with device access
+  # /dev/dri/*, /dev/nvidia*, and /dev/kfd are mounted automatically.
+  bindDevices = [ "/dev/kvm" ];
 
   # Persist paths across sandbox sessions
   persist = [ "$HOME/.claude" ];
