@@ -18,6 +18,17 @@
               f"Expected /dev/kfd readable (device access) inside sandbox, got: {val!r}"
           machine.succeed("rm -f /dev/kfd")
 
+      with subtest("devices: /dev/kvm is mounted by default with device access"):
+          # /dev/kvm is the KVM virtualization node, mounted by default when
+          # present. Fake it, then confirm it is readable inside the sandbox.
+          machine.succeed("rm -f /dev/kvm && mknod /dev/kvm c 1 5 && chmod 666 /dev/kvm")
+          val = sbox_run(
+              "if head -c 4 /dev/kvm >/dev/null 2>&1; then echo READABLE; else echo UNREADABLE; fi"
+          )
+          assert val == "READABLE", \
+              f"Expected /dev/kvm readable (device access) inside sandbox, got: {val!r}"
+          machine.succeed("rm -f /dev/kvm")
+
       with subtest("devices: --dev-bind exposes an extra device node with access"):
           machine.succeed("rm -f /dev/sboxdev && mknod /dev/sboxdev c 1 5 && chmod 666 /dev/sboxdev")
           val = sbox_run(

@@ -105,8 +105,8 @@ programs.sbox = {
   bindReadOnly."$HOME/.ssh/id_ed25519_github.pub".to = "$HOME/.ssh/id_ed25519.pub";
 
   # Mount extra device nodes with device access
-  # /dev/dri/*, /dev/nvidia*, and /dev/kfd are mounted automatically.
-  bindDevices = [ "/dev/kvm" ];
+  # /dev/dri/*, /dev/nvidia*, /dev/kfd, and /dev/kvm are mounted automatically.
+  bindDevices = [ "/dev/net/tun" ];
 
   # Persist paths across sandbox sessions
   persist = [ "$HOME/.claude" ];

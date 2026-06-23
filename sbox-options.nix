@@ -47,9 +47,9 @@
       Device nodes to bind-mount into the sandbox with device access allowed
       (bwrap --dev-bind-try), each at the same path inside the sandbox. Use for
       extra /dev/* nodes that a plain read-write bind cannot expose. /dev/dri/*,
-      /dev/nvidia*, and /dev/kfd are mounted automatically when present.
+      /dev/nvidia*, /dev/kfd, and /dev/kvm are mounted automatically when present.
     '';
-    example = [ "/dev/kvm" "/dev/net/tun" ];
+    example = [ "/dev/net/tun" ];
   };
 
   allowedTCPPorts = lib.mkOption {

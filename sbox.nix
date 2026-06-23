@@ -122,12 +122,13 @@ let
       EDITOR_ARGS+=(--setenv EDITOR "$EDITOR")
     fi
 
-    # Bind-mount GPU device nodes (read-write, device access allowed) if present:
+    # Bind-mount device nodes (read-write, device access allowed) if present:
     #   /dev/nvidia*, /dev/nvidia-caps/* — NVIDIA
     #   /dev/dri/*                       — DRI render/card nodes (AMD, Intel, Mesa)
     #   /dev/kfd                         — AMD KFD (ROCm/HIP compute)
+    #   /dev/kvm                         — KVM virtualization
     GPU_ARGS=()
-    for dev in /dev/nvidia* /dev/nvidia-caps/* /dev/dri/* /dev/kfd; do
+    for dev in /dev/nvidia* /dev/nvidia-caps/* /dev/dri/* /dev/kfd /dev/kvm; do
       [ -e "$dev" ] && GPU_ARGS+=(--dev-bind-try "$dev" "$dev")
     done
 
