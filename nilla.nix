@@ -186,6 +186,15 @@ nilla.create [
             };
           };
 
+          vm-sbox-browser = {
+            inherit systems;
+            check = import ./tests/sbox/lib/mk-test.nix {
+              sboxPackage = import ./sbox.nix;
+              name = "sbox-browser";
+              modules = [ ./tests/sbox/browser.nix ];
+            };
+          };
+
           vm-sbox-basic = {
             inherit systems;
             check = import ./tests/sbox/lib/mk-test.nix {

@@ -790,13 +790,22 @@ USAGE
     # slirp4netns. `exec` replaces the subshell so SLIRP_PID can kill
     # slirp4netns directly during cleanup.
     #   -c : auto-configure tap0 (10.0.2.100/24, gateway 10.0.2.2)
-    #   -6 : enable IPv6 (fd00::100/64, DNS at fd00::3)
     #   -r 3 : write "1" to FD 3 when the interface is ready, which lands
     #          in READY to unblock the inner script
+    #
+    # IPv6 (slirp4netns -6) is deliberately NOT enabled. It is experimental and
+    # comes up asynchronously via Router Advertisement a few seconds after the
+    # namespace starts (after the -r ready signal has already fired). That
+    # leaves the sandbox with a global IPv6 address + default v6 route whose NAT
+    # path is lossy, so IPv6-preferring clients (notably headless Chromium /
+    # Puppeteer, which then never reaches network-idle) hang until they time
+    # out, while curl and other v4 traffic keep working. Staying IPv4-only via
+    # slirp's solid v4 NAT keeps browsers and dev tools reliable; reach an
+    # IPv6-only destination with --network host.
     (
       while [ ! -s "$PIDFILE" ]; do sleep 0.1; done
       NS_PID=$(cat "$PIDFILE")
-      exec ${slirp4netns}/bin/slirp4netns --disable-host-loopback -c -6 -r 3 "$NS_PID" tap0 3>"$READY" >/dev/null 2>&1
+      exec ${slirp4netns}/bin/slirp4netns --disable-host-loopback -c -r 3 "$NS_PID" tap0 3>"$READY" >/dev/null 2>&1
     ) &
     SLIRP_PID=$!
 
