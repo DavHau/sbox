@@ -4,7 +4,7 @@
 ,"home-manager":{"kd":[1,{"ft":1,"ur":"https://github.com/nix-community/home-manager/archive/bc357c75e3142a31b849ba49c5299fb52c61cf59.tar.gz","ms":[]}],"ha":{"al":0,"vl":"sha256-OEBV+Y5I4Ldu98k0KvGXRfJYh+jjE8ocCSL/dxTGs1s="},"fv":"bc357c75e3142a31b849ba49c5299fb52c61cf59","ps":[]}
 ,"nilla":{"kd":[1,{"ft":1,"ur":"https://github.com/nilla-nix/nilla/archive/6d814dafa6f397ac2087333e5515c617faccba6f.tar.gz","ms":[]}],"ha":{"al":0,"vl":"sha256-A4zg3po1tyfh1if+LIllKtUGoWLFSwJSztvH2MG22qU="},"fv":"6d814dafa6f397ac2087333e5515c617faccba6f","ps":[]}
 ,"nilla-cli":{"kd":[1,{"ft":1,"ur":"https://github.com/nilla-nix/cli/archive/7bd8639687567e3629471d952b6b732691c0890b.tar.gz","ms":[]}],"ha":{"al":0,"vl":"sha256-lNxeYMSLTbe/yp4ElIujaP1bB0BfhGLt+6xgV2XWUtE="},"fv":"7bd8639687567e3629471d952b6b732691c0890b","ps":[]}
-,"wrappers":{"kd":[1,{"ft":1,"ur":"https://github.com/lassulus/wrappers/archive/0fe3161f35de2f7a4c894fdbaa1b681f5a62b617.tar.gz","ms":[]}],"ha":{"al":0,"vl":"sha256-PBkWEEmbov407Wjlq16CM/8tQWWHiOlZhtBkYol+Kw8="},"fv":"0fe3161f35de2f7a4c894fdbaa1b681f5a62b617","ps":[]}
+,"wrappers":{"kd":[1,{"ft":1,"ur":"https://github.com/lassulus/wrappers/archive/cd780e92c0fa66c2e721e1d91894f3db13b9f2b4.tar.gz","ms":[]}],"ha":{"al":0,"vl":"sha256-bRepNpAluz2i0IIk7Tmzw/4BkyOrwABvc66NEgXPEhA="},"fv":"cd780e92c0fa66c2e721e1d91894f3db13b9f2b4","ps":[]}
 }
 ,"p":{}
 }
