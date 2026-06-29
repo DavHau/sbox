@@ -32,10 +32,13 @@ let
     ++ (lib.concatMap (p: [ "--persist" p ]) cfg.persist);
 
   # Standalone wrapper: bakes in module-configured args for manual use.
+  # "$@" MUST be appended explicitly: passing `args` overrides wrapPackage's
+  # default (which would otherwise append "$@" itself), so without this the
+  # user's command is dropped and sbox falls back to an interactive shell.
   sboxWrapped = wrappers.lib.wrapPackage {
     inherit pkgs;
     package = sboxBase;
-    args = sboxArgs;
+    args = sboxArgs ++ [ "$@" ];
   };
 in
 {

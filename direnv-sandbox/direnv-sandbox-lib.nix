@@ -19,10 +19,13 @@ let
   });
 
   # Direnv wrapper: same args as sbox, but includes direnv-specific bind mounts.
+  # "$@" MUST be appended explicitly (see sbox-lib.nix): direnv invokes this
+  # wrapper with the target shell appended (e.g. `<wrapper> fish`), so without
+  # forwarding "$@" that shell argument is dropped and the wrong shell starts.
   sboxDirenvWrapped = wrappers.lib.wrapPackage {
     inherit pkgs;
     package = sboxDirenv;
-    args = sboxArgs;
+    args = sboxArgs ++ [ "$@" ];
   };
 in
 {

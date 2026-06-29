@@ -186,6 +186,15 @@ nilla.create [
             };
           };
 
+          vm-sbox-wrapped-command = {
+            inherit systems;
+            check = import ./tests/sbox/lib/mk-wrapped-test.nix {
+              inherit wrappers;
+              name = "sbox-wrapped-command";
+              modules = [ ./tests/sbox/wrapped-command.nix ];
+            };
+          };
+
           vm-sbox-browser = {
             inherit systems;
             check = import ./tests/sbox/lib/mk-test.nix {
